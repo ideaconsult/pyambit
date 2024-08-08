@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
-import pynanomapper.datamodel.ambit as mx
+import pyambit.datamodel.ambit as mx
 import ramanchada2 as rc2
-from pynanomapper.datamodel.nexus_writer import to_nexus
+from pyambit.datamodel.nexus_writer import to_nexus
 from ramanchada2.misc.types.fit_peaks_result import FitPeaksResult
 
 

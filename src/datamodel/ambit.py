@@ -347,7 +347,7 @@ SampleLink = create_model("SampleLink", __base__=SampleLink)
 
     Examples:
         from typing import List
-        from pynanomapper.datamodel.ambit import EffectRecord, Protocol, EndpointCategory, ProtocolApplication
+        from pyambit.datamodel.ambit import EffectRecord, Protocol, EndpointCategory, ProtocolApplication
         effect_list: List[EffectRecord] = []
         effect_list.append(EffectRecord(endpoint="Endpoint 1", unit="Unit 1", loValue=5.0))
         effect_list.append(EffectRecord(endpoint="Endpoint 2", unit="Unit 2", loValue=10.0))
@@ -433,7 +433,7 @@ class Study(AmbitModel):
     Example:
         # Creating an instance of Substances, with studies
         # Parse json retrieved from AMBIT services
-        from  pynanomapper.datamodel.measurements import Study
+        from  pyambit.datamodel.measurements import Study
         import requests
         url = "https://apps.ideaconsult.net/gracious/substance/GRCS-7bd6de68-a312-3254-8b3f-9f46d6976ce6"
         response = requests.get(url+"/study?media=application/json")
@@ -569,7 +569,7 @@ class Substances(AmbitModel):
     Example:
         # Creating an instance of Substances, with studies
         # Parse json retrieved from AMBIT services
-        from  pynanomapper.datamodel.measurements import Substances
+        from  pyambit.datamodel.measurements import Substances
         _p = Substances(**parsed_json)
         for substance in _p.substance:
             papps = substance.study

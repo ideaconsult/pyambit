@@ -28,8 +28,8 @@ from .ambit_deco import add_ambitmodel_method
         Exception: on parse
 
     Examples:
-        from  pynanomapper.datamodel.nexus_writer import to_nexus
-        from  pynanomapper.datamodel.measurements import ProtocolApplication
+        from  pyambit.datamodel.nexus_writer import to_nexus
+        from  pyambit.datamodel.measurements import ProtocolApplication
         pa = ProtocolApplication(**json_data)
         import nexusformat.nexus.tree as nx
         ne = pa.to_nexus(nx.NXroot())
@@ -273,8 +273,8 @@ def to_nexus(study: mx.Study, nx_root: nx.NXroot() = None):
         Exception: on parse
 
     Examples:
-        import  pynanomapper.datamodel.measurements as m2n
-        from pynanomapper.datamodel.nexus_writer import to_nexus
+        import  pyambit.datamodel.measurements as m2n
+        from pyambit.datamodel.nexus_writer import to_nexus
         import nexusformat.nexus.tree as nx
         substance="GRCS-18f0f0e8-b5f4-39bc-b8f8-9c869c8bd82f"
         url = "https://apps.ideaconsult.net/gracious/substance/{}?media=application/json".format(substance)
@@ -717,9 +717,9 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
     return df
 
 
-# from  pynanomapper.datamodel.measurements import ProtocolApplication
+# from  pyambit.datamodel.measurements import ProtocolApplication
 # pa = ProtocolApplication(**json_data)
-# from pynanomapper.datamodel import measurements2nexus as m2n
+# from pyambit.datamodel import measurements2nexus as m2n
 # df_samples, df_controls = m2n.papp2df(pa, _col="CONCENTRATION")
 def papp2df(pa: mx.ProtocolApplication, _cols=["CONCENTRATION"], drop_parsed_cols=True):
     df, dfcols, resultcols, condcols = effects2df(pa.effects, drop_parsed_cols)

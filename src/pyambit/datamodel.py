@@ -347,12 +347,15 @@ SampleLink = create_model("SampleLink", __base__=SampleLink)
 
     Examples:
         from typing import List
-        from pyambit.datamodel.ambit import EffectRecord, Protocol, EndpointCategory, ProtocolApplication
+        from pyambit.datamodel.ambit import EffectRecord, Protocol,
+                EndpointCategory, ProtocolApplication
         effect_list: List[EffectRecord] = []
-        effect_list.append(EffectRecord(endpoint="Endpoint 1", unit="Unit 1", loValue=5.0))
-        effect_list.append(EffectRecord(endpoint="Endpoint 2", unit="Unit 2", loValue=10.0))
+        effect_list.append(EffectRecord(endpoint="Endpoint 1",
+                unit="Unit 1", loValue=5.0))
+        effect_list.append(EffectRecord(endpoint="Endpoint 2",
+                unit="Unit 2", loValue=10.0))
         papp = ProtocolApplication(protocol=Protocol(topcategory="P-CHEM",
-                        category=EndpointCategory(code="XYZ")),effects=effect_list)
+                category=EndpointCategory(code="XYZ")),effects=effect_list)
         papp
 """
 

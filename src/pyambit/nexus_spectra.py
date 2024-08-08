@@ -4,8 +4,8 @@ from typing import Dict, List, Union
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
-import pyambit.datamodel.ambit as mx
-from pyambit.datamodel.nexus_writer import to_nexus
+import pyambit.datamodel as mx
+from pyambit.nexus_writer import to_nexus
 
 
 def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DATA"):
@@ -78,14 +78,12 @@ def spe2ambit(
 ):
 
     if papp is None:
-        effect_list: List[Union[mx.EffectRecord, mx.EffectArray]] = []
-        effect_list.append(spe2effect(x, y, unit, endpointtype))
         papp = mx.ProtocolApplication(
             protocol=mx.Protocol(
                 topcategory="P-CHEM",
                 category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
             ),
-            effects=effect_list,
+            effects=[],
         )
         configure_papp(
             papp,
@@ -98,8 +96,7 @@ def spe2ambit(
             prefix=prefix,
             meta=meta,
         )
-    else:
-        papp.effects.append(spe2effect(x, y, unit, endpointtype))
+    papp.effects.append(spe2effect(x, y, unit, endpointtype))
     return papp
 
 

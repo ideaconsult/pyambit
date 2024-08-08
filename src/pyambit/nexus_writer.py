@@ -10,10 +10,13 @@ import pandas as pd
 
 # from pydantic import validate_arguments
 
-from . import ambit as mx
+from . import datamodel as mx
 from .ambit_deco import add_ambitmodel_method
 
-"""
+
+@add_ambitmodel_method(mx.ProtocolApplication)
+def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
+    """
     ProtocolApplication to nexus entry (NXentry)
     Tries to follow https://manual.nexusformat.org/rules.html
 
@@ -34,12 +37,7 @@ from .ambit_deco import add_ambitmodel_method
         import nexusformat.nexus.tree as nx
         ne = pa.to_nexus(nx.NXroot())
         print(ne.tree)
-"""
-
-
-@add_ambitmodel_method(mx.ProtocolApplication)
-def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot() = None):
-
+    """
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -244,22 +242,18 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot() = None):
 
 
 @add_ambitmodel_method(mx.Study)
-def to_nexus(study: mx.Study, nx_root: nx.NXroot() = None):
+def to_nexus(study: mx.Study, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
-    x = 1
     for papp in study.study:
-
         papp.to_nexus(nx_root)
-        # x = x+1
-        # if x>22:
-        #    print(papp.uuid)
-        #    papp.to_nexus(nx_root)
-        #    break
+
     return nx_root
 
 
-"""
+@add_ambitmodel_method(mx.SubstanceRecord)
+def to_nexus(substance: mx.SubstanceRecord, nx_root: nx.NXroot = None):
+    """
     SubstanceRecord to nexus entry (NXentry)
 
     Args:
@@ -298,11 +292,7 @@ def to_nexus(study: mx.Study, nx_root: nx.NXroot() = None):
             print(substance.URI)
             print(err)
         nxroot.save("example.nxs",mode="w")
-"""
-
-
-@add_ambitmodel_method(mx.SubstanceRecord)
-def to_nexus(substance: mx.SubstanceRecord, nx_root: nx.NXroot() = None):
+    """
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -344,7 +334,7 @@ def to_nexus(substance: mx.SubstanceRecord, nx_root: nx.NXroot() = None):
 
 
 @add_ambitmodel_method(mx.Substances)
-def to_nexus(substances: mx.Substances, nx_root: nx.NXroot() = None):
+def to_nexus(substances: mx.Substances, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
     for substance in substances.substance:
@@ -353,7 +343,7 @@ def to_nexus(substances: mx.Substances, nx_root: nx.NXroot() = None):
 
 
 @add_ambitmodel_method(mx.Composition)
-def to_nexus(composition: mx.Composition, nx_root: nx.NXroot() = None):
+def to_nexus(composition: mx.Composition, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -379,13 +369,14 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
         ds_errors = None
         _attributes = {}
         # for c in ["CONCENTRATION","CONCENTRATION_loValue",
-        #                   "CONCENTRATION_SURFACE_loValue","CONCENTRATION_MASS_loValue"]:
+        #       "CONCENTRATION_SURFACE_loValue","CONCENTRATION_MASS_loValue"]:
         #    if c in tmp.columns:
         #        tmp = tmp.sort_values(by=[c])
         #        c_tag = c
         #        c_unittag = "{}_unit".format(c_tag.replace("_loValue",""))
         #        c_unit = meta_dict[c_unittag] if c_unittag in tmp.columns else ""
-        #        ds_conc.append(nx.tree.NXfield(tmp[c].values, name=c_tag, units=c_unit))
+        #        ds_conc.append(nx.tree.NXfield(tmp[c].values,
+        #               name=c_tag, units=c_unit))
 
         if "loValue" in tmp:
             unit = meta_dict["unit"] if "unit" in meta_dict else ""
@@ -463,7 +454,7 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
                             ]
                         )
                         ds_conditions.append(nx.tree.NXfield(int_array, name=tag))
-                    except Exception as err:
+                    except BaseException:
                         print(tmp[tag].values)
                 elif tag in ["MATERIAL", "TREATMENT"]:
                     vals = tmp[tag].unique()
@@ -629,7 +620,7 @@ def process_pa(pa: mx.ProtocolApplication, entry=None, nx_root: nx.NXroot = None
                     )
                     try:
                         method = entry["experiment_documentation"].attrs["method"]
-                    except:
+                    except BaseException:
                         method = ""
                     nxdata.title = "{} ({} by {}) {}".format(
                         meta_dict["endpoint"], method, pa.citation.owner, substance_name
@@ -660,7 +651,7 @@ def process_pa(pa: mx.ProtocolApplication, entry=None, nx_root: nx.NXroot = None
                     endpointtype_group[entryid] = nxdata
                     index = index + 1
 
-                except Exception as xx:
+                except BaseException:
                     print(traceback.format_exc())
         except Exception as err:
             raise Exception(
@@ -707,7 +698,8 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
         # print(_col,df.shape,df_normalized.shape)
         for col in df_normalized.columns:
             df.loc[:, col] = df_normalized[col]
-        # if there are non dict values, leave the column, otherwise drop it, we have the values parsed
+        # if there are non dict values, leave the column,
+        # otherwise drop it, we have the values parsed
         if drop_parsed_cols and df[_col].apply(lambda x: isinstance(x, dict)).all():
             df.drop(columns=[_col], inplace=True)
         # print(_col,df.shape,df_normalized.shape,df_c.shape)
@@ -721,7 +713,9 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
 # pa = ProtocolApplication(**json_data)
 # from pyambit.datamodel import measurements2nexus as m2n
 # df_samples, df_controls = m2n.papp2df(pa, _col="CONCENTRATION")
-def papp2df(pa: mx.ProtocolApplication, _cols=["CONCENTRATION"], drop_parsed_cols=True):
+def papp2df(pa: mx.ProtocolApplication, _cols=None, drop_parsed_cols=True):
+    if _cols is None:
+        _cols = ["CONCENTRATION"]
     df, dfcols, resultcols, condcols = effects2df(pa.effects, drop_parsed_cols)
     # display(df)
     if df is None:
@@ -769,13 +763,16 @@ def papp2df(pa: mx.ProtocolApplication, _cols=["CONCENTRATION"], drop_parsed_col
 # def cb(selected_columns,group,group_df):
 #    display(group_df)
 # grouped_dataframes = m2n.group_samplesdf(df_samples,callback=cb)
-def group_samplesdf(
-    df_samples, cols_unique=None, callback=None, _pattern=r"CONCENTRATION_.*loValue$"
-):
+def group_samplesdf(df_samples, cols_unique=None, callback=None, _pattern=None):
+    if _pattern is None:
+        _pattern = r"CONCENTRATION_.*loValue$"
+
     if cols_unique is None:
         _pattern_c_unit = r"^CONCENTRATION.*_unit$"
         # selected_columns = [col for col in df_samples.columns if col not in
-        # ["loValue","upValue","loQualifier","upQualifier","errQualifier","errorValue","textValue","REPLICATE","EXPERIMENT"] and not bool(re.match(_pattern, col))]
+        # ["loValue","upValue","loQualifier","upQualifier",
+        # "errQualifier","errorValue","textValue","REPLICATE","EXPERIMENT"]
+        # and not bool(re.match(_pattern, col))]
 
         selected_columns = [
             col

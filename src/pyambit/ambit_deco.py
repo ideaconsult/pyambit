@@ -2,7 +2,7 @@
 
 from functools import wraps
 
-from . import ambit
+from . import datamodel
 
 
 def add_ambitmodel_method(cls):

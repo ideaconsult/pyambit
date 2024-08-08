@@ -18,7 +18,7 @@ class NexusParser:
         nx_class = entry.attrs.get("NX_class", None)
         default = entry.attrs.get("default", None)
         # print(entry.name, ' ', nx_class, default)
-        for name, item in entry.items():
+        for _, item in entry.items():
             nx_class = item.attrs.get("NX_class", None)
             if nx_class == "NXdata":
                 if dataparser is None:

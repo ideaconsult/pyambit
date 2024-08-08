@@ -1,16 +1,11 @@
-import json
-import pprint
 import uuid
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
-import matplotlib.pyplot as plt
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
 import pyambit.datamodel.ambit as mx
-import ramanchada2 as rc2
 from pyambit.datamodel.nexus_writer import to_nexus
-from ramanchada2.misc.types.fit_peaks_result import FitPeaksResult
 
 
 def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DATA"):
@@ -108,8 +103,8 @@ def spe2ambit(
     return papp
 
 
-def peaks2nxdata(fitres: FitPeaksResult):
-    df = fitres.to_dataframe_peaks()
+def peaks2nxdata(df):
+
     nxdata = nx.NXdata()
     axes = ["height", "center", "sigma", "beta", "fwhm", "height"]
     for a in axes:

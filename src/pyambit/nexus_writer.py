@@ -10,12 +10,12 @@ import pandas as pd
 
 # from pydantic import validate_arguments
 
-from . import datamodel as mx
-from .ambit_deco import add_ambitmodel_method
+from pyambit.datamodel import Substances,SubstanceRecord, Composition,Study, ProtocolApplication, Value, EffectArray
+from pyambit.ambit_deco import add_ambitmodel_method
 
 
-@add_ambitmodel_method(mx.ProtocolApplication)
-def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
+@add_ambitmodel_method(ProtocolApplication)
+def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
     """
     ProtocolApplication to nexus entry (NXentry)
     Tries to follow https://manual.nexusformat.org/rules.html
@@ -43,12 +43,12 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
 
     # https://manual.nexusformat.org/classes/base_classes/NXentry.html
     try:
+        _categories_collection = None
+        #nx_root["group_byexperiment"] = nx.NXGroup()
         if papp.protocol.topcategory not in nx_root:
-            nx_root[papp.protocol.topcategory] = nx.NXgroup()
-        if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
-            nx_root[papp.protocol.topcategory][
-                papp.protocol.category.code
-            ] = nx.NXgroup()
+            _categories_collection = "/group_byexperiment/{}".format(papp.protocol.topcategory)
+        #if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
+        #    _categories_collection = "/group_byexperiment/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code)
         try:
             provider = (
                 ""
@@ -57,28 +57,25 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
             )
         except BaseException:
             provider = "@"
-        entry_id = "{}/{}/entry_{}_{}".format(
-            papp.protocol.topcategory, papp.protocol.category.code, provider, papp.uuid
+
+        entry_id = "/entry_{}_{}".format(
+            provider, papp.uuid
         )
     except Exception as err:
         # print(err,papp.citation.owner)
-        entry_id = "entry_{}".format(papp.uuid)
+        entry_id = "/entry_{}".format(papp.uuid)
 
+    _categories_collection = "{}{}".format(_categories_collection,entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
+        nx_root[entry_id].attrs["name"] = entry_id
+        #print("\n",_categories_collection, entry_id[1:])
+       
 
     nx_root["{}/entry_identifier_uuid".format(entry_id)] = papp.uuid
 
     nx_root["{}/definition".format(entry_id)] = papp.__class__.__name__
-    nxmap = nx_root["{}/definition".format(entry_id)]
-    nxmap.attrs["PROTOCOL_APPLICATION_UUID"] = "@entry_identifier_uuid"
-    nxmap.attrs["INVESTIGATION_UUID"] = "@collection_identifier"
-    nxmap.attrs["ASSAY_UUID"] = "@experiment_identifier"
-    nxmap.attrs["Protocol"] = "experiment_documentation"
-    nxmap.attrs["Citation"] = "reference"
-    nxmap.attrs["Substance"] = "sample"
-    nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
-    nxmap.attrs["EffectRecords"] = "datasets"
+
     # experiment_identifier
     # experiment_description
     # collection_identifier collection of related measurements or experiments.
@@ -117,15 +114,30 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
             experiment_documentation.attrs["title"] = papp.protocol.category.title
             experiment_documentation.attrs["endpoint"] = papp.protocol.endpoint
             experiment_documentation.attrs["guideline"] = papp.protocol.guideline
+            #definition is usually reference to the Nexus XML definition
+            #ambit category codes and method serve similar role
+            nx_root["{}/definition".format(entry_id)] = "/AMBIT_DATAMODEL/{}/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code,papp.protocol.guideline)
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
                         experiment_documentation.attrs["method"] = papp.parameters[tag]
+                        nx_root["{}/definition".format(entry_id)] = "/AMBIT_DATAMODEL/{}/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code,papp.parameters[tag])
 
     except Exception as err:
         raise Exception(
             "ProtocolApplication: protocol parsing error " + str(err)
         ) from err
+
+    nxmap = nx_root["{}/definition".format(entry_id)]
+    nxmap.attrs["ProtocolApplication"] = entry_id
+    nxmap.attrs["PROTOCOL_APPLICATION_UUID"] ="{}/entry_identifier_uuid".format(entry_id)
+    nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
+    nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
+    nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
+    nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
+    nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
+    nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
+    nxmap.attrs["EffectRecords"] = "datasets"
 
     try:
         citation_id = "{}/reference".format(entry_id)
@@ -154,13 +166,16 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
     sample_id = "{}/sample".format(entry_id)
     if sample_id not in nx_root:
         nx_root["{}/sample".format(entry_id)] = nx.NXsample()
+
+        
     sample = nx_root["{}/sample".format(entry_id)]
 
     if papp.owner is not None:
         substance_id = "substance/{}".format(papp.owner.substance.uuid)
         if substance_id not in nx_root:
             nx_root[substance_id] = nx.NXsample()
-            nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(substance_id)
+            nx_root[substance_id].attrs["uuid"] = papp.owner.substance.uuid
+        nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(substance_id)
 
     # parameters
     if not ("{}/instrument".format(entry_id) in nx_root):
@@ -191,7 +206,6 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
                 elif "material" in prm.lower():
                     target = sample
                 elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
-                    print(prm.upper)
                     target = nx_root[entry_id]["experiment_documentation"]
                     # continue
                 elif "E.SOP_REFERENCE" == prm:
@@ -211,7 +225,7 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
                     nx_root[entry_id]["experiment_documentation"][prm] = value
                 elif isinstance(value, str):
                     target[prm] = nx.NXfield(str(value))
-                elif isinstance(value, mx.Value):
+                elif isinstance(value, Value):
                     # tbd ranges?
                     target[prm] = nx.NXfield(value.loValue, unit=value.unit)
                 else:
@@ -237,12 +251,18 @@ def to_nexus(papp: mx.ProtocolApplication, nx_root: nx.NXroot = None):
         raise Exception(
             "ProtocolApplication: effectrecords parsing error " + str(err)
         ) from err
-
+    
+    nx_root["/group_byexperiment"] = nx.NXgroup()
+    print(nx_root[entry_id].attrs)
+    nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
+    #nx_root["/group_byexperiment/{}".format("xyz")] = nx.NXlink(substance_id)
+    #nx.NXlink(nx_root[entry_id])
+    #nx_root[_categories_collection] = nx.NXlink(entry_id)
     return nx_root
 
 
-@add_ambitmodel_method(mx.Study)
-def to_nexus(study: mx.Study, nx_root: nx.NXroot = None):
+@add_ambitmodel_method(Study)
+def to_nexus(study: Study, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
     for papp in study.study:
@@ -251,8 +271,8 @@ def to_nexus(study: mx.Study, nx_root: nx.NXroot = None):
     return nx_root
 
 
-@add_ambitmodel_method(mx.SubstanceRecord)
-def to_nexus(substance: mx.SubstanceRecord, nx_root: nx.NXroot = None):
+@add_ambitmodel_method(SubstanceRecord)
+def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None):
     """
     SubstanceRecord to nexus entry (NXentry)
 
@@ -333,8 +353,8 @@ def to_nexus(substance: mx.SubstanceRecord, nx_root: nx.NXroot = None):
     return nx_root
 
 
-@add_ambitmodel_method(mx.Substances)
-def to_nexus(substances: mx.Substances, nx_root: nx.NXroot = None):
+@add_ambitmodel_method(Substances)
+def to_nexus(substances: Substances, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
     for substance in substances.substance:
@@ -342,8 +362,8 @@ def to_nexus(substances: mx.Substances, nx_root: nx.NXroot = None):
     return nx_root
 
 
-@add_ambitmodel_method(mx.Composition)
-def to_nexus(composition: mx.Composition, nx_root: nx.NXroot = None):
+@add_ambitmodel_method(Composition)
+def to_nexus(composition: Composition, nx_root: nx.NXroot = None):
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -537,7 +557,7 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
         ) from err
 
 
-def effectarray2data(effect: mx.EffectArray):
+def effectarray2data(effect: EffectArray):
 
     signal = nx.tree.NXfield(
         effect.signal.values, name=effect.endpoint, units=effect.signal.unit
@@ -552,12 +572,13 @@ def effectarray2data(effect: mx.EffectArray):
     return nx.tree.NXdata(signal, axes)
 
 
-def process_pa(pa: mx.ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
+def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
 
     if entry is None:
         entry = nx.tree.NXentry()
-    effectarrays_only: List[mx.EffectArray] = list(
-        filter(lambda item: isinstance(item, mx.EffectArray), pa.effects)
+               
+    effectarrays_only: List[EffectArray] = list(
+        filter(lambda item: isinstance(item, EffectArray), pa.effects)
     )
     _default = None
     try:
@@ -666,7 +687,7 @@ def process_pa(pa: mx.ProtocolApplication, entry=None, nx_root: nx.NXroot = None
 def effects2df(effects, drop_parsed_cols=True):
     # Convert the list of EffectRecord objects to a list of dictionaries
     effectrecord_only = list(
-        filter(lambda item: not isinstance(item, mx.EffectArray), effects)
+        filter(lambda item: not isinstance(item, EffectArray), effects)
     )
     if not effectrecord_only:  # empty
         return (None, None, None, None)
@@ -713,7 +734,7 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
 # pa = ProtocolApplication(**json_data)
 # from pyambit.datamodel import measurements2nexus as m2n
 # df_samples, df_controls = m2n.papp2df(pa, _col="CONCENTRATION")
-def papp2df(pa: mx.ProtocolApplication, _cols=None, drop_parsed_cols=True):
+def papp2df(pa: ProtocolApplication, _cols=None, drop_parsed_cols=True):
     if _cols is None:
         _cols = ["CONCENTRATION"]
     df, dfcols, resultcols, condcols = effects2df(pa.effects, drop_parsed_cols)

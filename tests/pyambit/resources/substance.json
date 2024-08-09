@@ -1,0 +1,35 @@
+{
+
+"substance":[
+	{
+		"URI":"https://apps.ideaconsult.net/gracious/substance/GRCS-18f0f0e8-b5f4-39bc-b8f8-9c869c8bd82f",
+		"ownerUUID":"GRCS-2c506aa6-00ba-3bf8-af04-bde77608dde2",
+		"ownerName":"GRACIOUS",
+		"i5uuid":"GRCS-18f0f0e8-b5f4-39bc-b8f8-9c869c8bd82f",
+		"name":"NM-110 Zinc Oxide, uncoated",
+		"publicname":"JRCNM01100a",
+		"format":"xlsx",
+		"substanceType":"NPO_1542",
+		"referenceSubstance": {
+			"i5uuid":"XLSX-f5dc7960-1caa-3c75-882b-0dd1c7ef0269",
+			"uri":"https://apps.ideaconsult.net/gracious/query/compound/search/all?search=XLSX-f5dc7960-1caa-3c75-882b-0dd1c7ef0269"
+		},
+		"composition":[
+	],
+		"externalIdentifiers":[
+{
+"type":	"JRC ID",
+"id":	"JRCNM01100a"
+	},{
+"type":	"NM code",
+"id":	"NM-110"
+	}	],
+
+	"bundles":{
+
+		}
+	,"studysummary":[
+	]	}
+	],
+"records":1
+}

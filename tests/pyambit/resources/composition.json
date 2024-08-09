@@ -1,0 +1,141 @@
+{
+"composition":[
+{
+	"substance": {"URI" : "https://apps.ideaconsult.net/gracious/substance/10" },
+	"component": 	
+	{
+	"compound":{
+		"URI":"https://apps.ideaconsult.net/gracious/compound/23/conformer/23",
+		"structype":"NA",
+		"metric":null,
+		"name":"",
+		"cas":"",
+		"einecs":""
+,		"inchikey":"YVZATJAPAZIWIL-UHFFFAOYSA-M"
+,		"inchi":"InChI=1S/H2O.Zn/h1H2;/q;+1/p-1"
+,		"formula":"HOZn"
+		},
+	"values":{
+		"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23ChemicalNameDefault":"Zinc oxide",
+		"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23CASRNDefault":"1314-13-2",
+		"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23EINECSDefault":"215-222-5"
+		},
+	"facets":[
+
+		],
+	"bundles":{
+
+		}
+	} ,
+	"compositionUUID":"GRCS-87111488-4fb2-3e54-a5a2-43391ff365e9",
+	"compositionName":null,
+	"relation":"HAS_CORE",
+	"proportion":	{
+
+	"typical": {"precision": null,"value": 0.000E00,"unit": null},
+	"real": {"lowerPrecision": ">=","lowerValue": 0.000E00,"upperPrecision": "<=","upperValue": 0.000E00,"unit": "%"},
+	"function_as_additive":null
+	}
+,
+	"hidden":false
+}
+],
+"feature":{
+
+"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23IUPACNameDefault":{
+
+	"type":"Feature",
+	"title":"IUPAC name",
+	"units":"",
+	"isNominal":false,
+	"isNumeric":false,
+	"isMultiValue":false,
+	"sameAs":"http://www.opentox.org/api/1.1#IUPACName",
+	"isModelPredictionFeature":false,
+	"creator":"http://ambit.sourceforge.net",
+	"order":1,
+	"source":{
+		"URI":"https://apps.ideaconsult.net/gracious/dataset/Default",
+		"type":"Dataset"
+	},
+	"annotation":[]
+
+},
+"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23ChemicalNameDefault":{
+
+	"type":"Feature",
+	"title":"Names",
+	"units":"",
+	"isNominal":false,
+	"isNumeric":false,
+	"isMultiValue":false,
+	"sameAs":"http://www.opentox.org/api/1.1#ChemicalName",
+	"isModelPredictionFeature":false,
+	"creator":"http://ambit.sourceforge.net",
+	"order":2,
+	"source":{
+		"URI":"https://apps.ideaconsult.net/gracious/dataset/Default",
+		"type":"Dataset"
+	},
+	"annotation":[]
+
+},
+"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23CASRNDefault":{
+
+	"type":"Feature",
+	"title":"CasRN",
+	"units":"",
+	"isNominal":false,
+	"isNumeric":false,
+	"isMultiValue":false,
+	"sameAs":"http://www.opentox.org/api/1.1#CASRN",
+	"isModelPredictionFeature":false,
+	"creator":"http://ambit.sourceforge.net",
+	"order":3,
+	"source":{
+		"URI":"https://apps.ideaconsult.net/gracious/dataset/Default",
+		"type":"Dataset"
+	},
+	"annotation":[]
+
+},
+"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23EINECSDefault":{
+
+	"type":"Feature",
+	"title":"EC number",
+	"units":"",
+	"isNominal":false,
+	"isNumeric":false,
+	"isMultiValue":false,
+	"sameAs":"http://www.opentox.org/api/1.1#EINECS",
+	"isModelPredictionFeature":false,
+	"creator":"http://ambit.sourceforge.net",
+	"order":4,
+	"source":{
+		"URI":"https://apps.ideaconsult.net/gracious/dataset/Default",
+		"type":"Dataset"
+	},
+	"annotation":[]
+
+},
+"https://apps.ideaconsult.net/gracious/feature/http%3A%2F%2Fwww.opentox.org%2Fapi%2F1.1%23TradeNameDefault":{
+
+	"type":"Feature",
+	"title":"Trade Name",
+	"units":"",
+	"isNominal":false,
+	"isNumeric":false,
+	"isMultiValue":false,
+	"sameAs":"http://www.opentox.org/api/1.1#TradeName",
+	"isModelPredictionFeature":false,
+	"creator":"http://ambit.sourceforge.net",
+	"order":5,
+	"source":{
+		"URI":"https://apps.ideaconsult.net/gracious/dataset/Default",
+		"type":"Dataset"
+	},
+	"annotation":[]
+
+}}
+
+}

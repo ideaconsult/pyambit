@@ -11,7 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pydantic import AnyUrl, BaseModel, create_model, Field, root_validator, validator
 
-from .ambit_deco import add_ambitmodel_method
+from pyambit.ambit_deco import add_ambitmodel_method
 
 
 class AmbitModel(BaseModel):
@@ -594,6 +594,7 @@ class Substances(AmbitModel):
 
         return json.dumps(self, default=substances_encoder)
 
+Substances = create_model("Substances", __base__=Substances)
 
 def configure_papp(
     papp: ProtocolApplication,

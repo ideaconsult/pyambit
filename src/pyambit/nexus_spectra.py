@@ -6,12 +6,12 @@ import numpy as np
 import numpy.typing as npt
 import pyambit.datamodel as mx
 from pyambit.nexus_writer import to_nexus
+from datetime import datetime
 
-
-def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DATA"):
+def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DATA", meta : Dict = None):
     data_dict: Dict[str, mx.ValueArray] = {"x": mx.ValueArray(values=x, unit=unit)}
     return mx.EffectArray(
-        endpoint="Raman spectrum",
+        endpoint="y",
         endpointtype=endpointtype,
         signal=mx.ValueArray(values=y, unit="count"),
         axes=data_dict,
@@ -19,17 +19,29 @@ def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DA
 
 
 def configure_papp(
-    papp: mx.ProtocolApplication,
+    papp: mx.ProtocolApplication = None,
     instrument=None,
     wavelength=None,
     provider="FNMT",
     sample="PST",
     sample_provider="CHARISMA",
     investigation="Round Robin 1",
+    citation : mx.Citation = None,
     prefix="CRMA",
     meta=None,
 ):
-    papp.citation = mx.Citation(owner=provider, title=investigation, year=2022)
+    if papp is None:
+        papp = mx.ProtocolApplication(
+            protocol=mx.Protocol(
+                topcategory="P-CHEM",
+                category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
+            ),
+            effects=[],
+        )        
+    if citation is None:
+        papp.citation = mx.Citation(owner=provider, title=investigation, year=datetime.now().year)
+    else:
+        papp.citation = citation
     papp.investigation_uuid = str(uuid.uuid5(uuid.NAMESPACE_OID, investigation))
     papp.assay_uuid = str(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
@@ -93,10 +105,11 @@ def spe2ambit(
             sample=sample,
             sample_provider=sample_provider,
             investigation=investigation,
+            citation  = None,
             prefix=prefix,
             meta=meta,
         )
-    papp.effects.append(spe2effect(x, y, unit, endpointtype))
+    papp.effects.append(spe2effect(x, y, unit, endpointtype, meta))
     return papp
 
 

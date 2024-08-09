@@ -28,4 +28,5 @@ def test_substances():
     #print(type(substances),dir(substances))
     substances.to_nexus(nxroot)
     file = os.path.join(tempfile.gettempdir(), "substances.nxs")
+    print(file)
     nxroot.save(file, mode="w")

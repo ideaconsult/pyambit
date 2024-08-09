@@ -252,9 +252,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
             "ProtocolApplication: effectrecords parsing error " + str(err)
         ) from err
     
-    nx_root["/group_byexperiment"] = nx.NXgroup()
-    print(nx_root[entry_id].attrs)
-    nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
+    #nx_root["/group_byexperiment"] = nx.NXgroup()
+    #print(nx_root[entry_id].attrs)
+    #nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
     #nx_root["/group_byexperiment/{}".format("xyz")] = nx.NXlink(substance_id)
     #nx.NXlink(nx_root[entry_id])
     #nx_root[_categories_collection] = nx.NXlink(entry_id)
@@ -480,6 +480,7 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
                     vals = tmp[tag].unique()
                     if len(vals) == 1:
                         _attributes[tag] = vals
+                
                 else:
                     try:
                         str_array = np.array(
@@ -487,7 +488,12 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
                                 (
                                     ""
                                     if (x is None)
-                                    else x.encode("ascii", errors="ignore")
+                                    else (
+                                        "{} {}".format(x['loValue'], x['unit']).encode("ascii", errors="ignore")
+                                        if isinstance(x, dict)
+                                        else x.encode("ascii", errors="ignore")
+                                    ) 
+                                        
                                 )
                                 for x in tmp[tag].values
                             ]
@@ -496,6 +502,7 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
                         ds_conditions.append(nx.tree.NXfield(str_array, name=tag))
                     except Exception as err_condition:
                         print(err_condition, tag, tmp[tag].values)
+                        print("Exception traceback:\n%s", traceback.format_exc())
             else:
                 tag_value = "{}_loValue".format(tag)
                 tag_unit = "{}_unit".format(tag)
@@ -516,7 +523,7 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
 
         ds_conc.extend(ds_conditions)
 
-        if len(ds_response) > 0:
+        if (ds_response is not None) and (len(ds_response) > 0):
             _interpretation = "spectrum"  # means vector
 
         if len(ds_conc) > 0:
@@ -583,7 +590,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
     _default = None
     try:
         _path = "/substance/{}".format(pa.owner.substance.uuid)
-        print(_path, nx_root[_path].name)
+        #print(_path, nx_root[_path].name)
         substance_name = nx_root[_path].name
     except BaseException:
         substance_name = ""
@@ -597,7 +604,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 "DEFAULT" if effect.endpointtype is None else effect.endpointtype
             )
             if _group_key not in entry:
-                if effect.endpointtype == "RAW_DATA":
+                if effect.endpointtype in ("RAW_DATA","RAW DATA","RAW"):
                     entry[_group_key] = nx.tree.NXgroup()
                 else:
                     entry[_group_key] = nx.tree.NXprocess()
@@ -656,7 +663,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                     nxdata.name = meta_dict["endpoint"]
                     endpointtype_group = getattr(entry, endpointtype, None)
                     if endpointtype_group is None:
-                        if endpointtype == "DEFAULT" or endpointtype == "RAW_DATA":
+                        if endpointtype == "DEFAULT" or endpointtype in ("RAW_DATA","RAW DATA","RAW"):
                             endpointtype_group = nx.tree.NXgroup()
                         else:
                             endpointtype_group = nx.tree.NXprocess()

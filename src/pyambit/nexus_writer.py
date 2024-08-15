@@ -698,7 +698,7 @@ def effects2df(effects, drop_parsed_cols=True):
     )
     if not effectrecord_only:  # empty
         return (None, None, None, None)
-    effect_records_dicts = [er.dict() for er in effectrecord_only]
+    effect_records_dicts = [er.model_dump() for er in effectrecord_only]
     # Convert the list of dictionaries to a DataFrame
     df = pd.DataFrame(effect_records_dicts)
     _tag = "conditions"

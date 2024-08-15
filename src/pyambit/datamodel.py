@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field, root_validator
+from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -48,10 +48,10 @@ class Protocol(AmbitModel):
     def to_json(self):
         def protocol_encoder(obj):
             if isinstance(obj, EndpointCategory):
-                return obj.__dict__
+                return obj.model_dump()
             return obj
 
-        protocol_dict = self.dict()
+        protocol_dict = self.model_dump()
         return json.dumps(protocol_dict, default=protocol_encoder)
 
 
@@ -97,7 +97,7 @@ class ValueArray(AmbitModel):
         def value_array_encoder(obj):
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
-            return obj.__dict__
+            return obj.model_dump()
 
         return json.dumps(self, default=value_array_encoder)
 
@@ -141,7 +141,7 @@ class EffectRecord(AmbitModel):
     def to_dict(self):
         data = self.dict(exclude_none=True)
         if self.result:
-            data["result"] = self.result.dict()
+            data["result"] = self.result.model_dump()
         return data
     model_config = ConfigDict(populate_by_name=True)
 
@@ -159,7 +159,7 @@ class EffectRecord(AmbitModel):
     def to_json(self):
         def custom_encoder(obj):
             if isinstance(obj, BaseModel):
-                return obj.__dict__
+                return obj.model_dump()
             return obj
 
         return json.dumps(self, default=custom_encoder)
@@ -233,27 +233,27 @@ class EffectArray(EffectRecord):
     class EffectArrayEncoder(JSONEncoder):
         def default(self, obj):
             if isinstance(obj, ValueArray):
-                return obj.__dict__
+                return obj.model_dump()
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
             return super().default(obj)
 
     def to_json(self):
-        data = self.dict(exclude={"axes", "signal"})
-        data["signal"] = self.signal.__dict__ if self.signal else None
+        data = self.model_dump(exclude={"axes", "signal"})
+        data["signal"] = self.signal.model_dump if self.signal else None
         data["axes"] = (
-            {key: value.__dict__ for key, value in self.axes.items()}
+            {key: value.model_dump for key, value in self.axes.items()}
             if self.axes
             else None
         )
         return json.dumps(data, cls=self.EffectArrayEncoder)
 
     def to_dict(self):
-        data = self.dict(exclude_none=True)
+        data = self.model_dump(exclude_none=True)
         if self.signal:
-            data["signal"] = self.signal.dict()
+            data["signal"] = self.signal.model_dump()
         if self.axes:
-            data["axes"] = {key: value.dict() for key, value in self.axes.items()}
+            data["axes"] = {key: value.model_dump() for key, value in self.axes.items()}
         return data
 
 
@@ -291,12 +291,12 @@ class ReliabilityParams(AmbitModel):
 
 
 class Citation(AmbitModel):
-    year: Optional[str] = None
+    year: Optional[int] = None
     title: str
     owner: str
 
     @classmethod
-    def create(cls, owner: str, citation_title: str, year: str = None):
+    def create(cls, owner: str, citation_title: str, year: int = None):
         return cls(owner=owner, title=citation_title, year=year)
 
 
@@ -324,7 +324,7 @@ class SampleLink(AmbitModel):
     def to_json(self):
         def custom_encoder(obj):
             if isinstance(obj, BaseModel):
-                return obj.__dict__
+                return obj.model_dump()
             return obj
 
         return json.dumps(self, default=custom_encoder)
@@ -407,18 +407,18 @@ class ProtocolApplication(AmbitModel):
                 return obj.tolist()
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-        data = self.dict(exclude={"effects"})
-        data["effects"] = [effect.dict() for effect in self.effects]
+        data = self.model_dump(exclude={"effects"})
+        data["effects"] = [effect.model_dump() for effect in self.effects]
         if self.citation:
-            data["citation"] = self.citation.dict()
+            data["citation"] = self.citation.model_dump()
         if self.parameters:
             data["parameters"] = {
-                key: value.dict() for key, value in self.parameters.items()
+                key: value.model_dump() for key, value in self.parameters.items()
             }
         if self.owner:
-            data["owner"] = self.owner.dict()
+            data["owner"] = self.owner.model_dump()
         if self.protocol:
-            data["protocol"] = self.protocol.dict()
+            data["protocol"] = self.protocol.model_dump()
         return json.dumps(data, default=encode_numpy, indent=2)
 
 
@@ -445,7 +445,7 @@ class Study(AmbitModel):
     study: List[ProtocolApplication]
 
     def to_json(self) -> str:
-        data = {"study": [pa.dict() for pa in self.study]}
+        data = {"study": [pa.model_dump() for pa in self.study]}
         return json.dumps(data)
 
 
@@ -552,8 +552,8 @@ class SubstanceRecord(AmbitModel):
     def to_json(self):
         def substance_record_encoder(obj):
             if isinstance(obj, List):
-                return [item.__dict__ for item in obj]
-            return obj.__dict__
+                return [item.model_dump() for item in obj]
+            return obj.model_dump()
 
         return json.dumps(self, default=substance_record_encoder)
 
@@ -584,7 +584,7 @@ class Substances(AmbitModel):
         def substances_encoder(obj):
             if isinstance(obj, Substances):
                 return obj.substance
-            return obj.__dict__
+            return obj.model_dump()
 
         return json.dumps(self, default=substances_encoder)
 

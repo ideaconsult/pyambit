@@ -4,12 +4,11 @@ import re
 import uuid
 
 from enum import Enum
-from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
-from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field
+from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field, model_validator
 
 
 from pyambit.ambit_deco import add_ambitmodel_method
@@ -39,22 +38,55 @@ class EndpointCategory(AmbitModel):
     term: Optional[str] = None
     title: Optional[str] = None
 
+    def __eq__(self, other):
+        if not isinstance(other, EndpointCategory):
+            return False
+        
+        return (
+            self.code == other.code and
+            self.term == other.term and
+            self.title == other.title
+        )
 
+    def __repr__(self):
+        return (f"EndpointCategory(code={self.code!r}, term={self.term!r}, "
+                f"title={self.title!r})")
+    
 class Protocol(AmbitModel):
     topcategory: Optional[str] = None
     category: Optional[EndpointCategory] = None
     endpoint: Optional[str] = None
     guideline: List[str] = None
 
-    def to_json(self):
-        def protocol_encoder(obj):
-            if isinstance(obj, EndpointCategory):
-                return obj.model_dump()
-            return obj
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if self.category:
+            data['category'] = self.category.model_dump()
+        return data
+    
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'Protocol':
+        if 'category' in data and isinstance(data['category'], dict):
+            data['category'] = EndpointCategory(**data['category'])
+        return super().model_construct(**data)
 
-        protocol_dict = self.model_dump()
-        return json.dumps(protocol_dict, default=protocol_encoder)
+    def __repr__(self):
+        return f"Protocol(topcategory={self.topcategory!r}, category={self.category!r}, endpoint={self.endpoint!r}, guideline={self.guideline!r})"
 
+    def __eq__(self, other):
+        if not isinstance(other, Protocol):
+            return False
+        
+        return (
+            self.topcategory == other.topcategory and
+            self.category == other.category and
+            self.endpoint == other.endpoint and
+            self.guideline == other.guideline
+        )
+    
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True
+    )
 
 class EffectResult(AmbitModel):
     loQualifier: Optional[str] = None
@@ -69,6 +101,26 @@ class EffectResult(AmbitModel):
     @classmethod
     def create(cls, loValue: float = None, unit: str = None, **kwargs):
         return cls(loValue=loValue, unit=unit, **kwargs)
+    
+    def __eq__(self, other):
+        if not isinstance(other, EffectResult):
+            return False
+        return (
+            self.loQualifier == other.loQualifier and
+            self.loValue == other.loValue and
+            self.upQualifier == other.upQualifier and
+            self.upValue == other.upValue and
+            self.textValue == other.textValue and
+            self.errQualifier == other.errQualifier and
+            self.errorValue == other.errorValue and
+            self.unit == other.unit
+        )
+
+    def __repr__(self):
+        return (f"EffectResult(loQualifier={self.loQualifier!r}, loValue={self.loValue!r}, "
+                f"upQualifier={self.upQualifier!r}, upValue={self.upValue!r}, "
+                f"textValue={self.textValue!r}, errQualifier={self.errQualifier!r}, "
+                f"errorValue={self.errorValue!r}, unit={self.unit!r})")    
 
 
 EffectResult = create_model("EffectResult", __base__=EffectResult)
@@ -105,6 +157,15 @@ class ValueArray(AmbitModel):
         model_dict = self.model_dump()
         return json.dumps(model_dict, default=serialize, **kwargs)
 
+    def __eq__(self, other):
+        if not isinstance(other, ValueArray):
+            return False
+        return (
+            self.unit == other.unit and
+            self.errQualifier == other.errQualifier and
+            np.array_equal(self.values, other.values) and
+            np.array_equal(self.errorValue, other.errorValue)
+        )
 
 class EffectRecord(AmbitModel):
     endpoint: str
@@ -142,11 +203,33 @@ class EffectRecord(AmbitModel):
             return ", ".join(self.endpointSynonyms)
         return ""
 
-    def to_dict(self):
-        data = self.dict(exclude_none=True)
-        if self.result:
-            data["result"] = self.result.model_dump()
-        return data
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
+            if isinstance(obj, (EffectResult, Value)):
+                return obj.model_dump()
+            if isinstance(obj, (str, int, float, list, dict)):
+                return obj
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
+
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'EffectRecord':
+        if 'result' in data and isinstance(data['result'], dict):
+            data['result'] = EffectResult(**data['result'])
+
+        if 'conditions' in data:
+            new_conditions = {}
+            for key, value in data['conditions'].items():
+                if isinstance(value, dict):
+                    new_conditions[key] = Value(**value)
+                else:
+                    new_conditions[key] = value
+            data['conditions'] = new_conditions
+
+        return super().model_construct(**data)
+    
     model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
@@ -160,20 +243,7 @@ class EffectRecord(AmbitModel):
             conditions = {}
         return cls(endpoint=endpoint, conditions=conditions, result=result)
 
-    def to_json(self):
-        def custom_encoder(obj):
-            if isinstance(obj, BaseModel):
-                return obj.model_dump()
-            return obj
 
-        return json.dumps(self, default=custom_encoder)
-
-    # def to_json(self):
-    #    def effect_record_encoder(obj):
-    #        if isinstance(obj, List):
-    #            return [item.__dict__ for item in obj]
-    #        return obj
-    #    return json.dumps(self.__dict__, default=effect_record_encoder)
 
     @field_validator("conditions", mode="before")
     @classmethod
@@ -213,15 +283,25 @@ class EffectRecord(AmbitModel):
 
         return conditions
 
-    @classmethod
-    def from_dict(cls, data: dict):
-        if "conditions" in data:
-            parameters = data["conditions"]
-            for key, value in parameters.items():
-                if isinstance(value, dict):
-                    parameters[key] = Value(**value)
-        return cls(**data)
+    def __eq__(self, other):
+        if not isinstance(other, EffectRecord):
+            return False
+        return (
+            self.endpoint == other.endpoint and
+            self.endpointtype == other.endpointtype and
+            self.result == other.result and
+            self.conditions == other.conditions and
+            self.idresult == other.idresult and
+            self.endpointGroup == other.endpointGroup and
+            self.endpointSynonyms == other.endpointSynonyms and
+            self.sampleID == other.sampleID
+        )
 
+    def __repr__(self):
+        return (f"EffectRecord(endpoint={self.endpoint!r}, endpointtype={self.endpointtype!r}, "
+                f"result={self.result!r}, conditions={self.conditions!r}, "
+                f"idresult={self.idresult!r}, endpointGroup={self.endpointGroup!r}, "
+                f"endpointSynonyms={self.endpointSynonyms!r}, sampleID={self.sampleID!r})")
 
 EffectRecord = create_model("EffectRecord", __base__=EffectRecord)
 
@@ -234,33 +314,48 @@ class EffectArray(EffectRecord):
     def create(cls, signal: ValueArray = None, axes: Dict[str, ValueArray] = None):
         return cls(signal=signal, axes=axes)
 
-    class EffectArrayEncoder(JSONEncoder):
-        def default(self, obj):
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
             if isinstance(obj, ValueArray):
                 return obj.model_dump()
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
-            return super().default(obj)
+            return obj
 
-    def to_json(self):
         data = self.model_dump(exclude={"axes", "signal"})
-        data["signal"] = self.signal.model_dump if self.signal else None
-        data["axes"] = (
-            {key: value.model_dump for key, value in self.axes.items()}
-            if self.axes
-            else None
-        )
-        return json.dumps(data, cls=self.EffectArrayEncoder)
-
-    def to_dict(self):
-        data = self.model_dump(exclude_none=True)
         if self.signal:
             data["signal"] = self.signal.model_dump()
         if self.axes:
             data["axes"] = {key: value.model_dump() for key, value in self.axes.items()}
-        return data
+        return json.dumps(data, default=serialize, **kwargs)
 
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'EffectArray':
+        if 'signal' in data and isinstance(data['signal'], dict):
+            data['signal'] = ValueArray.model_construct(**data['signal'])
+        if 'axes' in data and isinstance(data['axes'], dict):
+            new_axes = {}
+            for key, value in data['axes'].items():
+                if isinstance(value, dict):
+                    new_axes[key] = ValueArray.model_construct(**value)
+                else:
+                    new_axes[key] = value
+            data['axes'] = new_axes
+        return super().model_construct(**data)
 
+    def __eq__(self, other):
+        if not isinstance(other, EffectArray):
+            return False
+        return (
+            super().__eq__(other) and
+            self.signal == other.signal and
+            self.axes == other.axes
+        )
+
+    def __repr__(self):
+        return (f"EffectArray(signal={self.signal!r}, axes={self.axes!r}, "
+                f"{super().__repr__()})")
+    
 EffectArray = create_model("EffectArray", __base__=EffectArray)
 
 
@@ -270,7 +365,34 @@ class ProtocolEffectRecord(EffectRecord):
     studyResultType: Optional[str] = None
     interpretationResult: Optional[str] = None
 
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        data['protocol'] = self.protocol.model_dump()
+        return data
 
+    @classmethod
+    def model_construct(cls, **data):
+        if 'protocol' in data and isinstance(data['protocol'], dict):
+            data['protocol'] = Protocol(**data['protocol'])
+        return super().model_construct(**data)
+
+    def __eq__(self, other):
+        if not isinstance(other, ProtocolEffectRecord):
+            return False
+        return (
+            super().__eq__(other) and
+            self.protocol == other.protocol and
+            self.documentUUID == other.documentUUID and
+            self.studyResultType == other.studyResultType and
+            self.interpretationResult == other.interpretationResult
+        )
+    
+    def __repr__(self):
+        return (f"ProtocolEffectRecord(protocol={self.protocol}, documentUUID={self.documentUUID}, "
+                f"studyResultType={self.studyResultType}, interpretationResult={self.interpretationResult}, "
+                f"{super().__repr__()})")
+        
+    
 class STRUC_TYPE(str, Enum):
     NA = "NA"
     MARKUSH = "MARKUSH"
@@ -293,6 +415,25 @@ class ReliabilityParams(AmbitModel):
     r_studyResultType: Optional[str] = None
     r_value: Optional[str] = None
 
+    def __eq__(self, other):
+        if not isinstance(other, ReliabilityParams):
+            return False
+        return (
+            self.r_isRobustStudy == other.r_isRobustStudy and
+            self.r_isUsedforClassification == other.r_isUsedforClassification and
+            self.r_isUsedforMSDS == other.r_isUsedforMSDS and
+            self.r_purposeFlag == other.r_purposeFlag and
+            self.r_studyResultType == other.r_studyResultType and
+            self.r_value == other.r_value
+        )
+    
+    def __repr__(self):
+        return (f"ReliabilityParams(r_isRobustStudy={self.r_isRobustStudy}, "
+                f"r_isUsedforClassification={self.r_isUsedforClassification}, "
+                f"r_isUsedforMSDS={self.r_isUsedforMSDS}, "
+                f"r_purposeFlag={self.r_purposeFlag}, "
+                f"r_studyResultType={self.r_studyResultType}, "
+                f"r_value={self.r_value})")
 
 class Citation(AmbitModel):
     year: Optional[int] = None
@@ -303,6 +444,18 @@ class Citation(AmbitModel):
     def create(cls, owner: str, citation_title: str, year: int = None):
         return cls(owner=owner, title=citation_title, year=year)
 
+    def __eq__(self, other):
+        if not isinstance(other, Citation):
+            return False
+        return (
+            self.year == other.year and
+            self.title == other.title and
+            self.owner == other.owner
+        )
+    
+    def __repr__(self):
+        return (f"Citation(year={self.year}, title={self.title}, "
+                f"owner={self.owner})")
 
 Citation = create_model("Citation", __base__=Citation)
 
@@ -311,10 +464,27 @@ class Company(AmbitModel):
     uuid: Optional[str] = None
     name: Optional[str] = None
 
+    def __eq__(self, other):
+        if not isinstance(other, Company):
+            return False
+        return (
+            self.uuid == other.uuid and
+            self.name == other.name
+        )
+    
+    def __repr__(self):
+        return (f"Company(uuid={self.uuid}, name={self.name})")
 
 class Sample(AmbitModel):
     uuid: str
-
+    def __eq__(self, other):
+        if not isinstance(other, Sample):
+            return False
+        return self.uuid == other.uuid
+    
+    def __repr__(self):
+        return f"Sample(uuid={self.uuid!r})"
+    
 
 class SampleLink(AmbitModel):
     substance: Sample
@@ -322,16 +492,31 @@ class SampleLink(AmbitModel):
 
     @classmethod
     def create(cls, sample_uuid: str, sample_provider: str):
-        return cls(substance=Sample(sample_uuid), company=Company(name=sample_provider))
+        return cls(substance=Sample(uuid=sample_uuid), company=Company(name=sample_provider))
+    
     model_config = ConfigDict(populate_by_name=True)
 
-    def to_json(self):
-        def custom_encoder(obj):
-            if isinstance(obj, BaseModel):
-                return obj.model_dump()
-            return obj
-
-        return json.dumps(self, default=custom_encoder)
+    def model_dump_json(self, **kwargs) -> str:
+        return json.dumps(self.model_dump(), **kwargs)
+    
+    @classmethod
+    def model_construct(cls, **data):
+        if 'substance' in data and isinstance(data['substance'], dict):
+            data['substance'] = Sample(**data['substance'])
+        if 'company' in data and isinstance(data['company'], dict):
+            data['company'] = Company(**data['company'])
+        return super().model_construct(**data)    
+    
+    def __eq__(self, other):
+        if not isinstance(other, SampleLink):
+            return False
+        return (
+            self.substance == other.substance and
+            self.company == other.company
+        )
+        
+    def __repr__(self):
+        return (f"SampleLink(substance={self.substance!r}, company={self.company!r})")
 
 
 SampleLink = create_model("SampleLink", __base__=SampleLink)
@@ -405,25 +590,67 @@ class ProtocolApplication(AmbitModel):
 
         return cleaned_params
 
-    def to_json(self):
-        def encode_numpy(obj):
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-        data = self.model_dump(exclude={"effects"})
-        data["effects"] = [effect.model_dump() for effect in self.effects]
-        if self.citation:
-            data["citation"] = self.citation.model_dump()
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
         if self.parameters:
-            data["parameters"] = {
-                key: value.model_dump() for key, value in self.parameters.items()
+            data['parameters'] = {
+                k: (v.model_dump() if isinstance(v, BaseModel) else v) for k, v in self.parameters.items()
             }
+        if self.citation:
+            data['citation'] = self.citation.model_dump()
+        if self.effects:
+            data['effects'] = [e.model_dump() if isinstance(e, BaseModel) else e for e in self.effects]
         if self.owner:
-            data["owner"] = self.owner.model_dump()
+            data['owner'] = self.owner.model_dump()
         if self.protocol:
-            data["protocol"] = self.protocol.model_dump()
-        return json.dumps(data, default=encode_numpy, indent=2)
+            data['protocol'] = self.protocol.model_dump()
+        return data
+
+    @classmethod
+    def model_construct(cls, **data):
+        if 'parameters' in data and isinstance(data['parameters'], dict):
+            data['parameters'] = {
+                k: (Value(**v) if isinstance(v, dict) else v) for k, v in data['parameters'].items()
+            }
+        if 'citation' in data and isinstance(data['citation'], dict):
+            data['citation'] = Citation(**data['citation'])
+        if 'effects' in data:
+            data['effects'] = [
+                EffectRecord.model_construct(**e) if isinstance(e, dict) else e
+                for e in data['effects']
+            ]
+        if 'owner' in data and isinstance(data['owner'], dict):
+            data['owner'] = SampleLink.model_construct(**data['owner'])
+        if 'protocol' in data and isinstance(data['protocol'], dict):
+            data['protocol'] = Protocol.model_construct(**data['protocol'])
+        return super().model_construct(**data)
+
+    def __eq__(self, other):
+        if not isinstance(other, ProtocolApplication):
+            return False
+        return (
+            self.uuid == other.uuid and
+            self.interpretationResult == other.interpretationResult and
+            self.interpretationCriteria == other.interpretationCriteria and
+            self.parameters == other.parameters and
+            self.citation == other.citation and
+            self.effects == other.effects and
+            self.owner == other.owner and
+            self.protocol == other.protocol and
+            self.investigation_uuid == other.investigation_uuid and
+            self.assay_uuid == other.assay_uuid and
+            self.updated == other.updated
+        )
+
+    def __repr__(self):
+        return (f"ProtocolApplication(uuid={self.uuid!r}, "
+                f"interpretationResult={self.interpretationResult!r}, "
+                f"interpretationCriteria={self.interpretationCriteria!r}, "
+                f"parameters={self.parameters!r}, citation={self.citation!r}, "
+                f"effects={self.effects!r}, owner={self.owner!r}, "
+                f"protocol={self.protocol!r}, investigation_uuid={self.investigation_uuid!r}, "
+                f"assay_uuid={self.assay_uuid!r}, updated={self.updated!r})")
+    
 
 
 ProtocolApplication = create_model("ProtocolApplication", __base__=ProtocolApplication)
@@ -448,10 +675,19 @@ class Study(AmbitModel):
 
     study: List[ProtocolApplication]
 
-    def to_json(self) -> str:
-        data = {"study": [pa.model_dump() for pa in self.study]}
-        return json.dumps(data)
+    model_config = ConfigDict(populate_by_name=True)
 
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if 'study' in data:
+            data['study'] = [pa.model_dump() for pa in data['study']]
+        return data
+
+    @classmethod
+    def model_construct(cls, **data):
+        if 'study' in data and isinstance(data['study'], list):
+            data['study'] = [ProtocolApplication.model_construct(**pa) if isinstance(pa, dict) else pa for pa in data['study']]
+        return super().model_construct(**data)
 
 class ReferenceSubstance(AmbitModel):
     i5uuid: Optional[str] = None
@@ -478,6 +714,21 @@ class ComponentProportion(AmbitModel):
     function_as_additive: Optional[float] = None
     model_config = ConfigDict(use_enum_values=True)
 
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if 'typical' in data:
+            data['typical'] = data['typical'].model_dump()
+        if 'real' in data:
+            data['real'] = data['real'].model_dump()
+        return data
+
+    @classmethod
+    def model_construct(cls, **data):
+        if 'typical' in data and isinstance(data['typical'], dict):
+            data['typical'] = TypicalProportion.model_construct(**data['typical'])
+        if 'real' in data and isinstance(data['real'], dict):
+            data['real'] = RealProportion.model_construct(**data['real'])
+        return super().model_construct(**data)
 
 class Compound(AmbitModel):
     URI: Optional[AnyUrl] = None
@@ -485,20 +736,76 @@ class Compound(AmbitModel):
     metric: Optional[float] = None
     name: Optional[str] = None
     cas: Optional[str] = None  # Field(None, regex=r'^\d{1,7}-\d{2}-\d$')
-    einecs: Optional[str] = (
-        None  # Field(None, regex=   r'^[A-Za-z0-9/@+=(),:;\[\]{}\-.]+$')
-    )
+    einecs: Optional[str] = None
+         # Field(None, regex=   r'^[A-Za-z0-9/@+=(),:;\[\]{}\-.]+$')
     inchikey: Optional[str] = None  # Field(None, regex=r'^[A-Z\-]{27}$')
     inchi: Optional[str] = None
     formula: Optional[str] = None
 
+    #model_config = ConfigDict(use_enum_values=True)
+
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        return data
+
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'Compound':
+        if 'URI' in data:
+            uri_value = data['URI']
+            if uri_value is not None:
+                data['URI'] = AnyUrl(uri_value) 
+            else:
+                data['URI'] = None 
+        
+        return super().model_construct(**data)
+    
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Compound):
+            return False
+        
+        return (
+            self.URI == other.URI and
+            self.structype == other.structype and
+            self.metric == other.metric and
+            self.name == other.name and
+            self.cas == other.cas and
+            self.einecs == other.einecs and
+            self.inchikey == other.inchikey and
+            self.inchi == other.inchi and
+            self.formula == other.formula
+        )
+
+    def __repr__(self) -> str:
+        return (f"Compound(URI={self.URI}, structype={self.structype}, metric={self.metric}, "
+                f"name={self.name}, cas={self.cas}, einecs={self.einecs}, "
+                f"inchikey={self.inchikey}, inchi={self.inchi}, formula={self.formula})")    
 
 class Component(BaseModel):
     compound: Compound
     values: Dict[str, Any] = None
     # facets: list
     # bundles: dict
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if self.compound:
+            data['compound'] = self.compound.model_dump()
+        if self.values is None:
+            data['values'] = {}
+        else:
+            data['values'] = self.values
+        return data
 
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'Component':
+        # Handle 'compound' construction
+        if 'compound' in data and isinstance(data['compound'], dict):
+            data['compound'] = Compound.model_construct(**data['compound'])
+
+        # Handle 'values'
+        if 'values' in data and data['values'] is None:
+            data['values'] = {}
+
+        return super().model_construct(**data)
 
 class CompositionEntry(AmbitModel):
     component: Component
@@ -507,20 +814,35 @@ class CompositionEntry(AmbitModel):
     relation: Optional[str] = "HAS_COMPONENT"
     proportion: Optional[ComponentProportion] = None
     hidden: bool = False
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if self.component:
+            data['component'] = self.component.model_dump()
+        if self.proportion:
+            data['proportion'] = self.proportion.model_dump()
+        return data
 
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'CompositionEntry':
+        if 'component' in data and isinstance(data['component'], dict):
+            data['component'] = Component.model_construct(**data['component'])
+        
+        if 'proportion' in data and isinstance(data['proportion'], dict):
+            data['proportion'] = ComponentProportion.model_construct(**data['proportion'])
+        
+        return super().model_construct(**data)
 
 def update_compound_features(composition: List[CompositionEntry], feature):
     # Modify the composition based on the feature
     for entry in composition:
         for key, value in entry.component.values.items():
-            if feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#CASRN":
-                entry.component.compound.cas = value
-            elif feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#EINECS":
-                entry.component.compound.einecs = value
-            elif (
-                feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#ChemicalName"
-            ):
-                entry.component.compound.name = value
+            if "sameAs" in feature[key]:
+                if feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#CASRN":
+                    entry.component.compound.cas = value
+                elif feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#EINECS":
+                    entry.component.compound.einecs = value
+                elif feature[key]["sameAs"] == "http://www.opentox.org/api/1.1#ChemicalName":
+                    entry.component.compound.name = value
 
     return composition
 
@@ -529,7 +851,7 @@ class Composition(AmbitModel):
     composition: List[CompositionEntry] = None
     feature: dict
 
-    #@root_validator
+    @model_validator(mode='before')
     def update_composition(cls, values):
         composition = values.get("composition")
         feature = values.get("feature")
@@ -537,6 +859,20 @@ class Composition(AmbitModel):
             values["composition"] = update_compound_features(composition, feature)
         return values
 
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if self.composition:
+            data['composition'] = [entry.model_dump() for entry in self.composition]
+        return data
+
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'Composition':
+        if 'composition' in data:
+            data['composition'] = [
+                CompositionEntry.model_construct(**item) if isinstance(item, dict) else item
+                for item in data['composition']
+            ]
+        return super().model_construct(**data)
 
 class SubstanceRecord(AmbitModel):
     URI: Optional[str] = None
@@ -553,16 +889,55 @@ class SubstanceRecord(AmbitModel):
     study: Optional[List[ProtocolApplication]] = None
     composition: Optional[List[CompositionEntry]] = None
 
-    def to_json(self):
-        def substance_record_encoder(obj):
-            if isinstance(obj, List):
-                return [item.model_dump() for item in obj]
-            return obj.model_dump()
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        data = super().model_dump(**kwargs)
+        if self.study is not None:
+            data['study'] = [pa.model_dump() for pa in self.study] if self.study else []
+        if self.composition is not None:
+            data['composition'] = [entry.model_dump() for entry in self.composition] if self.composition else []
+        return data
 
-        return json.dumps(self, default=substance_record_encoder)
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'SubstanceRecord':
+        if 'study' in data and data['study'] is not None:
+            data['study'] = [
+                ProtocolApplication.model_construct(**item) if isinstance(item, dict) else item
+                for item in data['study']
+            ]
+        if 'composition' in data:
+            if data['composition'] is not None:
+                data['composition'] = [
+                    CompositionEntry.model_construct(**item) if isinstance(item, dict) else item
+                    for item in data['composition']
+                ]
+            else:
+                data['composition'] = None  # Explicitly set to None if it's originally None
+        if 'referenceSubstance' in data and isinstance(data['referenceSubstance'], dict):
+            data['referenceSubstance'] = ReferenceSubstance.model_construct(**data['referenceSubstance'])
+        return super().model_construct(**data)
 
+    def __eq__(self, other):
+        if not isinstance(other, SubstanceRecord):
+            return False
+        return (
+            self.URI == other.URI and
+            self.ownerUUID == other.ownerUUID and
+            self.ownerName == other.ownerName and
+            self.i5uuid == other.i5uuid and
+            self.name == other.name and
+            self.publicname == other.publicname and
+            self.format == other.format and
+            self.substanceType == other.substanceType and
+            self.referenceSubstance == other.referenceSubstance and
+            self.study == other.study and
+            self.composition == other.composition
+        )
 
-# s = Substances(**parsed_json)
+    def __repr__(self):
+        return (f"SubstanceRecord(URI={self.URI}, ownerUUID={self.ownerUUID}, ownerName={self.ownerName}, "
+                f"i5uuid={self.i5uuid}, name={self.name}, publicname={self.publicname}, format={self.format}, "
+                f"substanceType={self.substanceType}, referenceSubstance={self.referenceSubstance}, "
+                f"study={self.study}, composition={self.composition})")
 
 
 class Substances(AmbitModel):
@@ -584,13 +959,22 @@ class Substances(AmbitModel):
 
     substance: List[SubstanceRecord]
 
-    def to_json(self):
-        def substances_encoder(obj):
-            if isinstance(obj, Substances):
-                return obj.substance
-            return obj.model_dump()
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        data = super().model_dump(**kwargs)
+        data['substance'] = [substance.model_dump() for substance in self.substance]
+        return data
 
-        return json.dumps(self, default=substances_encoder)
+    @classmethod
+    def model_construct(cls, **data: Any) -> 'Substances':
+        if 'substance' in data:
+            data['substance'] = [
+                SubstanceRecord.model_construct(**item) if isinstance(item, dict) else item
+                for item in data['substance']
+            ]
+        return super().model_construct(**data)
+
+    def __repr__(self):
+        return f"Substances(substance={self.substance})"
 
 Substances = create_model("Substances", __base__=Substances)
 

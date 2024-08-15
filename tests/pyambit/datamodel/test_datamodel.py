@@ -9,6 +9,7 @@ from pydantic_core import from_json
 TEST_DIR = Path(__file__).parent.parent / "resources"
 
 def test_substances_load():
+    substances = None
     with open(os.path.join(TEST_DIR,"substance.json"), "r", encoding='utf-8') as file:
         json_substance = json.load(file)
         substances = mb.Substances(**json_substance)
@@ -17,7 +18,10 @@ def test_substances_load():
             json_study = json.load(file)
             study = mb.Study(**json_study)
             substances.substance[0].study = study.study
-    print(substances.substance[0].study[0].model_dump_json())
+    #print(substances.substance[0].study[0].model_dump_json())
+    data = json.loads(substances.model_dump_json())
+    new_val = mb.Substances.model_construct(**data)
+    assert substances == new_val
 
 
 def test_valuearray_roundtrip():

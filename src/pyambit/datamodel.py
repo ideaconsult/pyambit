@@ -8,8 +8,9 @@ from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from numpy.typing import NDArray
+import numpy.typing as npt
 from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field
+
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -76,30 +77,33 @@ EffectResult = create_model("EffectResult", __base__=EffectResult)
 class ValueArray(AmbitModel):
     unit: Optional[str] = None
     # the arrays can in fact contain strings, we don't need textValue!
-    values: Union[NDArray, None] = None
+    values: Union[npt.NDArray, None] = None
     errQualifier: Optional[str] = None
-    errorValue: Optional[Union[NDArray, None]] = None
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    errorValue: Optional[Union[npt.NDArray, None]] = None
+    model_config = ConfigDict(
+            arbitrary_types_allowed=True
+        )
 
     @classmethod
     def create(
         cls,
-        values: NDArray = None,
+        values: npt.NDArray = None,
         unit: str = None,
-        errorValue: NDArray = None,
+        errorValue: npt.NDArray = None,
         errQualifier: str = None,
     ):
         return cls(
             values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier
         )
 
-    def to_json(self):
-        def value_array_encoder(obj):
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
             if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            return obj.model_dump()
-
-        return json.dumps(self, default=value_array_encoder)
+                return obj.tolist()  # Convert NumPy arrays to lists
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+        # Dump the model to a dictionary and then serialize it to JSON
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
 
 
 class EffectRecord(AmbitModel):

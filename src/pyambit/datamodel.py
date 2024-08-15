@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import AnyUrl, BaseModel, create_model, Field, root_validator, validator
+from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field, root_validator
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -35,8 +35,8 @@ class Value(AmbitModel):
 
 class EndpointCategory(AmbitModel):
     code: str
-    term: Optional[str]
-    title: Optional[str]
+    term: Optional[str] = None
+    title: Optional[str] = None
 
 
 class Protocol(AmbitModel):
@@ -79,9 +79,7 @@ class ValueArray(AmbitModel):
     values: Union[NDArray, None] = None
     errQualifier: Optional[str] = None
     errorValue: Optional[Union[NDArray, None]] = None
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
     def create(
@@ -114,14 +112,16 @@ class EffectRecord(AmbitModel):
     endpointSynonyms: List[str] = None
     sampleID: Optional[str] = None
 
-    @validator("endpoint", pre=True)
+    @field_validator("endpoint", mode="before")
+    @classmethod
     def clean_endpoint(cls, v):
         if v is None:
             return None
         else:
             return v.replace("/", "_")
 
-    @validator("endpointtype", pre=True)
+    @field_validator("endpointtype", mode="before")
+    @classmethod
     def clean_endpointtype(cls, v):
         if v is None:
             return None
@@ -143,9 +143,7 @@ class EffectRecord(AmbitModel):
         if self.result:
             data["result"] = self.result.dict()
         return data
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def create(
@@ -173,7 +171,8 @@ class EffectRecord(AmbitModel):
     #        return obj
     #    return json.dumps(self.__dict__, default=effect_record_encoder)
 
-    @validator("conditions", pre=True)
+    @field_validator("conditions", mode="before")
+    @classmethod
     def clean_parameters(cls, v):
         if v is None:
             return {}
@@ -320,9 +319,7 @@ class SampleLink(AmbitModel):
     @classmethod
     def create(cls, sample_uuid: str, sample_provider: str):
         return cls(substance=Sample(sample_uuid), company=Company(name=sample_provider))
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     def to_json(self):
         def custom_encoder(obj):
@@ -366,16 +363,14 @@ class ProtocolApplication(AmbitModel):
     interpretationResult: Optional[str] = None
     interpretationCriteria: Optional[str] = None
     parameters: Optional[Dict[str, Union[str, Value, None]]] = None
-    citation: Optional[Citation]
+    citation: Optional[Citation] = None
     effects: List[Union[EffectRecord, EffectArray]]
     owner: Optional[SampleLink] = None
     protocol: Optional[Protocol] = None
     investigation_uuid: Optional[str] = None
     assay_uuid: Optional[str] = None
-    updated: Optional[str]
-
-    class Config:
-        allow_population_by_field_name = True
+    updated: Optional[str] = None
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def create(
@@ -390,7 +385,8 @@ class ProtocolApplication(AmbitModel):
             effects = []
         return cls(protocol=protocol, effects=effects, **kwargs)
 
-    @validator("parameters", pre=True)
+    @field_validator("parameters", mode="before")
+    @classmethod
     def clean_parameters(cls, v):
         if v is None:
             return {}
@@ -459,9 +455,9 @@ class ReferenceSubstance(AmbitModel):
 
 
 class TypicalProportion(AmbitModel):
-    precision: Optional[str] = Field(None, regex=r"^\S+$")
+    precision: Optional[str] = Field(None, pattern=r"^\S+$")
     value: Optional[float] = None
-    unit: Optional[str] = Field(None, regex=r"^\S+$")
+    unit: Optional[str] = Field(None, pattern=r"^\S+$")
 
 
 class RealProportion(AmbitModel):
@@ -469,16 +465,14 @@ class RealProportion(AmbitModel):
     lowerValue: Optional[float] = None
     upperPrecision: Optional[str] = None
     upperValue: Optional[float] = None
-    unit: Optional[str] = Field(None, regex=r"^\S+$")
+    unit: Optional[str] = Field(None, pattern=r"^\S+$")
 
 
 class ComponentProportion(AmbitModel):
     typical: TypicalProportion
     real: RealProportion
     function_as_additive: Optional[float] = None
-
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class Compound(AmbitModel):
@@ -531,7 +525,7 @@ class Composition(AmbitModel):
     composition: List[CompositionEntry] = None
     feature: dict
 
-    @root_validator
+    #@root_validator
     def update_composition(cls, values):
         composition = values.get("composition")
         feature = values.get("feature")

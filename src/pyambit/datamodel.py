@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field, model_validator
-
+import pandas as pd
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -309,7 +309,6 @@ EffectRecord = create_model("EffectRecord", __base__=EffectRecord)
 class EffectArray(EffectRecord):
     signal: ValueArray = None
     axes: Optional[Dict[str, ValueArray]] = None
-
     @classmethod
     def create(cls, signal: ValueArray = None, axes: Dict[str, ValueArray] = None):
         return cls(signal=signal, axes=axes)
@@ -652,6 +651,72 @@ class ProtocolApplication(AmbitModel):
                 f"assay_uuid={self.assay_uuid!r}, updated={self.updated!r})")
     
 
+            
+    def convert_effectrecords2array(self):
+        effects: List[Union[EffectRecord, EffectArray]] = self.effects
+        records = [effect for effect in effects if isinstance(effect, EffectRecord) and not isinstance(effect, EffectArray)]
+        arrays = [effect for effect in effects if isinstance(effect, EffectArray)]
+        if len(records)==0:
+            return effects,None
+
+        df,cols,result,conditions = effects2df(records)
+        #if uuid is not None:
+        #    df.to_excel("{}.xlsx".format(uuid),index=False)     
+
+        for endpointtype in df["endpointtype"].unique():
+            if endpointtype is None:
+                dft = df.loc[df["endpointtype"].isna()].reset_index(drop=True)
+            else:
+                dft = df.loc[df["endpointtype"]==endpointtype].reset_index(drop=True)
+            for endpoint in dft["endpoint"].unique():
+                dfe = dft.loc[dft["endpoint"]==endpoint].reset_index(drop=True)
+                for unit in dfe["unit"].unique():
+                    if unit is None:
+                        _tmp = dfe.loc[dfe["unit"].isna()].reset_index(drop=True)
+                    else:
+                        _tmp = dfe.loc[dfe["unit"]==unit].reset_index(drop=True)
+                    _tmp.dropna(how="all",inplace=True)
+                    if _tmp.shape[0] == 0:
+                        print("empty",uuid,endpointtype,endpoint,unit)
+                        continue
+
+
+                    axes = {}
+                    for _col in conditions:
+                        if _col in _tmp:
+                            _f = pd.json_normalize(_tmp[_col])
+                            if _f.empty:
+                                axis = transform_array(_tmp[_col].values)
+                                if axis is not None:
+                                    axes[_col] = ValueArray(values=axis)
+                            else:
+                                loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
+                                if loValues is not None:
+                                    axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
+
+
+                    loValues = None if _tmp["loValue"].dropna().empty else transform_array(_tmp["loValue"].values)
+                    upValues = None if _tmp["upValue"].dropna().empty else transform_array(_tmp["upValue"].values)
+                    loQualifier = None if _tmp["loQualifier"].dropna().empty else transform_array(_tmp["loQualifier"].values)
+                    upQualifier = None if _tmp["upQualifier"].dropna().empty else transform_array(_tmp["upQualifier"].values)
+                    textValue = None if _tmp["textValue"].dropna().empty else transform_array(_tmp["textValue"].values)
+                    errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
+                    errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
+
+                    earray = EffectArray(
+                            endpoint=endpoint,     
+                            endpointtype=endpointtype,      
+                            signal=ValueArray(
+                                unit=unit,
+                                values=textValue if loValues is None else loValues,
+                                errQualifier=errqualifier,
+                                errorValue=errvalues
+                            ),
+                            axes=axes                     
+                    )               
+                    arrays.append(earray)             
+                    #print(earray)		
+        return arrays,df            
 
 ProtocolApplication = create_model("ProtocolApplication", __base__=ProtocolApplication)
 
@@ -1014,3 +1079,60 @@ def configure_papp(
         uuid="{}-{}".format(prefix, uuid.uuid5(uuid.NAMESPACE_OID, sample))
     )
     papp.owner = SampleLink(substance=substance, company=company)
+
+def transform_array(arr):
+    any_strings = any(isinstance(item, str) for item in arr)
+    if any_strings:
+        try:
+            return pd.to_numeric(arr, errors='raise')
+        except Exception as e:
+            _converted =  np.array(
+                    [
+                        (
+                            "=".encode("ascii", errors="ignore")  # Default value for None
+                            if x is None
+                            else (
+                                x.encode("ascii", errors="ignore")  # Encode strings
+                                if isinstance(x, str)
+                                else str(x).encode("ascii", errors="ignore")  # Convert non-strings to string and encode
+                            )
+                        )
+                        for x in arr
+                    ]
+                )    
+            #print(_converted)
+            return _converted        
+    numeric_array = pd.to_numeric(arr, errors='coerce')
+    all_nans = np.all(np.isnan(numeric_array))
+    if all_nans:
+        return None
+    else:
+        return arr 
+    
+def effects2df(effects, drop_parsed_cols=True):
+    # Convert the list of EffectRecord objects to a list of dictionaries
+    effectrecord_only = list(
+        filter(lambda item: not isinstance(item, EffectArray), effects)
+    )
+    if not effectrecord_only:  # empty
+        return (None, None, None, None)
+    effect_records_dicts = [er.model_dump() for er in effectrecord_only]
+    # Convert the list of dictionaries to a DataFrame
+    df = pd.DataFrame(effect_records_dicts)
+    _tag = "conditions"
+    conditions_df = pd.DataFrame(df[_tag].tolist())
+    # Drop the original 'conditions' column from the main DataFrame
+    if drop_parsed_cols:
+        df.drop(columns=[_tag], inplace=True)
+    _tag = "result"
+    result_df = pd.DataFrame(df[_tag].tolist())
+    if drop_parsed_cols:
+        df.drop(columns=[_tag], inplace=True)
+    # Concatenate the main DataFrame and the result and conditions DataFrame
+    return (
+        pd.concat([df, result_df, conditions_df], axis=1),
+        df.columns,
+        result_df.columns,
+        conditions_df.columns,
+    )
+

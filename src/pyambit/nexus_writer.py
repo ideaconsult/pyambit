@@ -10,12 +10,12 @@ import pandas as pd
 
 # from pydantic import validate_arguments
 
-from pyambit.datamodel import Substances,SubstanceRecord, Composition,Study, ProtocolApplication, Value, EffectArray
+from pyambit.datamodel import Substances,SubstanceRecord, Composition,Study, ProtocolApplication, Value, EffectArray, effects2df
 from pyambit.ambit_deco import add_ambitmodel_method
 
 
 @add_ambitmodel_method(ProtocolApplication)
-def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
+def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=False):
     """
     ProtocolApplication to nexus entry (NXentry)
     Tries to follow https://manual.nexusformat.org/rules.html
@@ -43,12 +43,12 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
 
     # https://manual.nexusformat.org/classes/base_classes/NXentry.html
     try:
-        _categories_collection = None
-        #nx_root["group_byexperiment"] = nx.NXGroup()
-        if papp.protocol.topcategory not in nx_root:
-            _categories_collection = "/group_byexperiment/{}".format(papp.protocol.topcategory)
-        #if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
-        #    _categories_collection = "/group_byexperiment/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code)
+        _categories_collection = ""
+        if hierarchy:
+            nx_root[papp.protocol.topcategory] = nx.NXGroup()
+            if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
+                nx_root[papp.protocol.topcategory][papp.protocol.category.code] = nx.NXGroup()
+            _categories_collection = "/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code)
         try:
             provider = (
                 ""
@@ -58,9 +58,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
         except BaseException:
             provider = "@"
 
-        entry_id = "/entry_{}_{}".format(
-            provider, papp.uuid
-        )
+        entry_id = "{}/entry_{}_{}".format(_categories_collection,provider, papp.uuid)
     except Exception as err:
         # print(err,papp.citation.owner)
         entry_id = "/entry_{}".format(papp.uuid)
@@ -584,9 +582,6 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
     if entry is None:
         entry = nx.tree.NXentry()
                
-    effectarrays_only: List[EffectArray] = list(
-        filter(lambda item: isinstance(item, EffectArray), pa.effects)
-    )
     _default = None
     try:
         _path = "/substance/{}".format(pa.owner.substance.uuid)
@@ -595,6 +590,8 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
     except BaseException:
         substance_name = ""
 
+    effectarrays_only, df = pa.convert_effectrecords2array()
+    
     if effectarrays_only:  # if we have EffectArray in the pa list
         # _endpointtype_groups = {}
         index = 0
@@ -604,7 +601,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 "DEFAULT" if effect.endpointtype is None else effect.endpointtype
             )
             if _group_key not in entry:
-                if effect.endpointtype in ("RAW_DATA","RAW DATA","RAW"):
+                if effect.endpointtype in ("RAW_DATA","RAW DATA","RAW","raw data"):
                     entry[_group_key] = nx.tree.NXgroup()
                 else:
                     entry[_group_key] = nx.tree.NXprocess()
@@ -626,97 +623,8 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 effect.endpoint, pa.citation.owner, substance_name
             )
 
-    df_samples, df_controls, resultcols, condcols, df_aggregated = papp2df(
-        pa,
-        _cols=["CONCENTRATION", "DOSE", "AMOUNT_OF_MATERIAL", "TREATMENT_CONDITION"],
-        drop_parsed_cols=True,
-    )
-
-    index = 1
-    df_titles = ["data", "controls", "derived"]
-    for num, df in enumerate([df_samples, df_controls, df_aggregated]):
-        if df is None:
-            continue
-
-        grouped_dataframes, selected_columns = group_samplesdf(df, cols_unique=None)
-        try:
-            for group, group_df in grouped_dataframes:
-                try:
-
-                    nxdata, meta_dict = nexus_data(
-                        selected_columns, group, group_df, condcols
-                    )
-                    try:
-                        method = entry["experiment_documentation"].attrs["method"]
-                    except BaseException:
-                        method = ""
-                    nxdata.title = "{} ({} by {}) {}".format(
-                        meta_dict["endpoint"], method, pa.citation.owner, substance_name
-                    )
-                    # print(meta_dict)
-
-                    entryid = "{}_{}_{}".format(
-                        df_titles[num], index, meta_dict["endpoint"]
-                    )
-
-                    endpointtype = format_name(meta_dict, "endpointtype", "DEFAULT")
-                    nxdata.name = meta_dict["endpoint"]
-                    endpointtype_group = getattr(entry, endpointtype, None)
-                    if endpointtype_group is None:
-                        if endpointtype == "DEFAULT" or endpointtype in ("RAW_DATA","RAW DATA","RAW"):
-                            endpointtype_group = nx.tree.NXgroup()
-                        else:
-                            endpointtype_group = nx.tree.NXprocess()
-                            endpointtype_group["NOTE"] = nx.tree.NXnote()
-                            endpointtype_group["NOTE"].attrs[
-                                "description"
-                            ] = endpointtype
-
-                        endpointtype_group.name = endpointtype
-                        entry[endpointtype] = endpointtype_group
-                        endpointtype_group.attrs["default"] = entryid
-
-                    endpointtype_group[entryid] = nxdata
-                    index = index + 1
-
-                except BaseException:
-                    print(traceback.format_exc())
-        except Exception as err:
-            raise Exception(
-                "ProtocolApplication: data parsing error {} {}".format(
-                    selected_columns, err
-                )
-            ) from err
 
     return entry
-
-
-def effects2df(effects, drop_parsed_cols=True):
-    # Convert the list of EffectRecord objects to a list of dictionaries
-    effectrecord_only = list(
-        filter(lambda item: not isinstance(item, EffectArray), effects)
-    )
-    if not effectrecord_only:  # empty
-        return (None, None, None, None)
-    effect_records_dicts = [er.model_dump() for er in effectrecord_only]
-    # Convert the list of dictionaries to a DataFrame
-    df = pd.DataFrame(effect_records_dicts)
-    _tag = "conditions"
-    conditions_df = pd.DataFrame(df[_tag].tolist())
-    # Drop the original 'conditions' column from the main DataFrame
-    if drop_parsed_cols:
-        df.drop(columns=[_tag], inplace=True)
-    _tag = "result"
-    result_df = pd.DataFrame(df[_tag].tolist())
-    if drop_parsed_cols:
-        df.drop(columns=[_tag], inplace=True)
-    # Concatenate the main DataFrame and the result and conditions DataFrame
-    return (
-        pd.concat([df, result_df, conditions_df], axis=1),
-        df.columns,
-        result_df.columns,
-        conditions_df.columns,
-    )
 
 
 def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
@@ -729,6 +637,7 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
         # if there are non dict values, leave the column,
         # otherwise drop it, we have the values parsed
         if drop_parsed_cols and df[_col].apply(lambda x: isinstance(x, dict)).all():
+            print(_col)
             df.drop(columns=[_col], inplace=True)
         # print(_col,df.shape,df_normalized.shape,df_c.shape)
         # break
@@ -737,89 +646,6 @@ def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
     return df
 
 
-# from  pyambit.datamodel.measurements import ProtocolApplication
-# pa = ProtocolApplication(**json_data)
-# from pyambit.datamodel import measurements2nexus as m2n
-# df_samples, df_controls = m2n.papp2df(pa, _col="CONCENTRATION")
-def papp2df(pa: ProtocolApplication, _cols=None, drop_parsed_cols=True):
-    if _cols is None:
-        _cols = ["CONCENTRATION"]
-    df, dfcols, resultcols, condcols = effects2df(pa.effects, drop_parsed_cols)
-    # display(df)
-    if df is None:
-        return None, None, None, None, None
-
-    df_samples = None
-    df_controls = None
-    df_aggregated = None
-    for _col in _cols:
-        if _col in condcols:
-            df_samples = df.loc[df[_col].apply(lambda x: isinstance(x, dict))]
-            df_controls = df.loc[df[_col].apply(lambda x: isinstance(x, str))]
-            # we can have aggregated values with NaN in concentraiton columns
-            df_aggregated = df.loc[df[_col].isna()]
-            break
-    if df_samples is None:
-        df_samples = df
-        df_controls = None
-    # df_string.dropna(axis=1,how="all",inplace=True)
-    df_samples = papp_mash(
-        df_samples.reset_index(drop=True), dfcols, condcols, drop_parsed_cols
-    )
-    if not (df_controls is None):
-        cols_to_process = [col for col in condcols if col != _col]
-        df_controls = papp_mash(
-            df_controls.reset_index(drop=True),
-            dfcols,
-            cols_to_process,
-            drop_parsed_cols,
-        )
-
-    if not (df_aggregated is None):
-        cols_to_process = [col for col in condcols if col != _col]
-        df_aggregated = papp_mash(
-            df_aggregated.reset_index(drop=True),
-            dfcols,
-            cols_to_process,
-            drop_parsed_cols,
-        )
-
-    return df_samples, df_controls, resultcols, condcols, df_aggregated
-
-
-#
-# def cb(selected_columns,group,group_df):
-#    display(group_df)
-# grouped_dataframes = m2n.group_samplesdf(df_samples,callback=cb)
-def group_samplesdf(df_samples, cols_unique=None, callback=None, _pattern=None):
-    if _pattern is None:
-        _pattern = r"CONCENTRATION_.*loValue$"
-
-    if cols_unique is None:
-        _pattern_c_unit = r"^CONCENTRATION.*_unit$"
-        # selected_columns = [col for col in df_samples.columns if col not in
-        # ["loValue","upValue","loQualifier","upQualifier",
-        # "errQualifier","errorValue","textValue","REPLICATE","EXPERIMENT"]
-        # and not bool(re.match(_pattern, col))]
-
-        selected_columns = [
-            col
-            for col in df_samples.columns
-            if col in ["endpoint", "endpointtype", "unit"]
-            or bool(re.match(_pattern_c_unit, col))
-        ]
-
-    else:
-        selected_columns = [col for col in cols_unique if col in df_samples.columns]
-    # dropna is to include missing values
-    try:
-        grouped_dataframes = df_samples.groupby(selected_columns, dropna=False)
-    except Exception as err:
-        raise Exception("group_samplesdf: {} {}".format(selected_columns, err)) from err
-    if callback is not None:
-        for group, group_df in grouped_dataframes:
-            callback(selected_columns, group, group_df)
-    return grouped_dataframes, selected_columns
 
 
 def extract_doi(input_str):

@@ -471,8 +471,8 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
                             ]
                         )
                         ds_conditions.append(nx.tree.NXfield(int_array, name=tag))
-                    except BaseException:
-                        print(tmp[tag].values)
+                    except BaseException as berr:
+                        print(berr,tmp[tag].values)
                 elif tag in ["MATERIAL", "TREATMENT"]:
                     vals = tmp[tag].unique()
                     if len(vals) == 1:
@@ -576,6 +576,8 @@ def effectarray2data(effect: EffectArray):
     nxdata =  nx.tree.NXdata(signal, axes)
     for key in effect.conditions:
         nxdata.attrs[key] = effect.conditions[key]            
+    for key in effect.axes:
+        nxdata.attrs["{}_indices".format(key)] = 0        
     return nxdata
 
 

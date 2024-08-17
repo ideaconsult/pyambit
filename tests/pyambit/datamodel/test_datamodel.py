@@ -158,16 +158,22 @@ def test_effect_array_roundtrip():
         ),
         axes={
             "x": mb.ValueArray(
-                unit="units_x",
+                unit="cm-1",
                 values=np.array([0.0, 1.0]),
                 errQualifier="Error_x"
             ),
+            "x_nm": mb.ValueArray(
+                unit="nm",
+                values=np.array([0.0, 1.0]),
+                errQualifier="Error_x"
+            ),            
             "y": mb.ValueArray(
                 unit="units_y",
                 values=np.array([10.0, 20.0]),
                 errQualifier="Error_y"
             ),
         },
+        axis_groups={"x" : ["x_nm"]},
         idresult=1,
         endpointGroup=2,
         endpointSynonyms=["synonym1", "synonym2"],
@@ -177,7 +183,7 @@ def test_effect_array_roundtrip():
     json_string = original.model_dump_json()
     data = json.loads(json_string)
     new_instance = mb.EffectArray.model_construct(**data)
-
+    
     assert original == new_instance
 
 def test_protocol_effect_record_roundtrip():

@@ -309,6 +309,10 @@ EffectRecord = create_model("EffectRecord", __base__=EffectRecord)
 class EffectArray(EffectRecord):
     signal: ValueArray = None
     axes: Optional[Dict[str, ValueArray]] = None
+    axis_groups: Optional[Dict[str, List[str]]] = None
+    # Groups of axes where each group represents alternatives
+    # axis_groups = {"CONCENTRATION" : ["CONCENTRATION_MASS"] }
+    
     @classmethod
     def create(cls, signal: ValueArray = None, axes: Dict[str, ValueArray] = None):
         return cls(signal=signal, axes=axes)
@@ -326,6 +330,8 @@ class EffectArray(EffectRecord):
             data["signal"] = self.signal.model_dump()
         if self.axes:
             data["axes"] = {key: value.model_dump() for key, value in self.axes.items()}
+        if self.axis_groups:
+            data["axis_groups"] = self.axis_groups            
         return json.dumps(data, default=serialize, **kwargs)
 
     @classmethod
@@ -340,6 +346,27 @@ class EffectArray(EffectRecord):
                 else:
                     new_axes[key] = value
             data['axes'] = new_axes
+        # Process 'axis_groups' if it's a dictionary
+        if 'axis_groups' in data and isinstance(data['axis_groups'], dict):
+            # Ensure all alternative axes are lists of strings
+            new_axis_groups = {}
+            for primary_axis, alternatives in data['axis_groups'].items():
+                if not isinstance(alternatives, list) or not all(isinstance(a, str) for a in alternatives):
+                    raise ValueError(f"Alternative axes for '{primary_axis}' should be a list of strings.")
+                
+                # Ensure all alternative axes are present in 'axes'
+                if primary_axis not in data['axes']:
+                    raise ValueError(f"Primary axis '{primary_axis}' in axis_groups must be a key in axes.")
+                
+                # Validate that each alternative axis exists in 'axes'
+                for alt_axis in alternatives:
+                    if alt_axis not in data['axes']:
+                        raise ValueError(f"Alternative axis '{alt_axis}' in axis_groups must be a key in axes.")
+                
+                new_axis_groups[primary_axis] = alternatives
+            
+            data['axis_groups'] = new_axis_groups
+
         return super().model_construct(**data)
 
     def __eq__(self, other):
@@ -348,12 +375,17 @@ class EffectArray(EffectRecord):
         return (
             super().__eq__(other) and
             self.signal == other.signal and
-            self.axes == other.axes
+            self.axes == other.axes and
+            self.axis_groups == other.axis_groups
         )
 
     def __repr__(self):
-        return (f"EffectArray(signal={self.signal!r}, axes={self.axes!r}, "
-                f"{super().__repr__()})")
+        repr_signal = repr(self.signal) if self.signal else "None"
+        repr_axes = repr(self.axes) if self.axes else "None"
+        repr_axis_groups = repr(self.axis_groups) if self.axis_groups else "None"
+        return (f"EffectArray(signal={repr_signal}, axes={repr_axes}, "
+                f"axis_groups={repr_axis_groups}, {super().__repr__()})")
+    
     
 EffectArray = create_model("EffectArray", __base__=EffectArray)
 
@@ -697,6 +729,16 @@ class ProtocolApplication(AmbitModel):
 
                         axes = {}
                         new_conditions = {}
+                        df_axes = pd.DataFrame()
+
+                        # handle alternative concentration axes. tbd generic solution
+                        alt_axes = [s for s in conditions if s.startswith("CONCENTRATION")]
+                        alt_axes = [s for s in alt_axes if s not in _nonnumcols]
+                        if len(alt_axes)<2: #means there are no alternative axes
+                            alt_axes = None
+                        else:
+                            alt_axes = {alt_axes[0] : alt_axes[1:]}
+
                         for _col in conditions:
                             if _col in _nonnumcols:
                                 new_conditions[_col] = _tmp[_col].unique()[0]
@@ -709,10 +751,12 @@ class ProtocolApplication(AmbitModel):
                                     axis = transform_array(_tmp[_col].values)
                                     if axis is not None:
                                         axes[_col] = ValueArray(values=axis)
+                                        df_axes[_col] = axis
                                 else:
                                     loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
                                     if loValues is not None:
                                         axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
+                                        df_axes[_col] = loValues
 
 
                         loValues = None if _tmp["loValue"].dropna().empty else transform_array(_tmp["loValue"].values)
@@ -723,10 +767,12 @@ class ProtocolApplication(AmbitModel):
                         errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
                         errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
 
-                        axes_names = np.array(list(axes.keys()))
-                        #print(endpoint,endpointtype,unit,axes_names)
-                        #mx,axes_values = create_multidimensional_matrix(_tmp,"loValue",axes_names)
-                        #print(axes_values,mx.shape)
+                        df_axes["signal"] = loValues
+                        
+                        axes_cols = df_axes.columns.drop("signal").values
+
+                        #mx,axes_values = create_multidimensional_matrix(df_axes,"signal",axes_cols,alt_axes) #,[alt_axes[1:]])
+                        #print(mx.shape,axes_values)
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  
@@ -737,7 +783,8 @@ class ProtocolApplication(AmbitModel):
                                     errQualifier=errqualifier,
                                     errorValue=errvalues
                                 ),
-                                axes=axes                     
+                                axes=axes,
+                                axis_groups= alt_axes 
                         )               
                         arrays.append(earray)             
                         #print(earray)		
@@ -1210,25 +1257,24 @@ def split_df_by_columns(df, columns):
     
     return split_dfs
 
-def create_multidimensional_matrix(df, signal_col, *axis_cols):
+
+def create_multidimensional_matrix(df, signal_col, axis_cols, alt_axes):
     """
     create_multidimensional_matrix(df, 'signal', axis_cols)
     """
-
     # Extract unique values for each axis and create index mappings
     axis_values = [sorted(df[axis].unique()) for axis in axis_cols]
     axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
     
     # Determine the shape of the multidimensional matrix
     shape = tuple(len(values) for values in axis_values)
-    
     # Initialize the multidimensional matrix with NaNs
     matrix = np.full(shape, np.nan)
-    
+    #print(df)
     # Populate the matrix with signal values
     for _, row in df.iterrows():
         signal_value = row[signal_col]
         indices = tuple(axis_indices[i][row[axis_cols[i]]] for i in range(len(axis_cols)))
         matrix[indices] = signal_value
-    
+    #print("matrix",matrix)
     return matrix,axis_values

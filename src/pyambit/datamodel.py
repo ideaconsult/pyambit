@@ -659,64 +659,82 @@ class ProtocolApplication(AmbitModel):
         if len(records)==0:
             return effects,None
 
-        df,cols,result,conditions = effects2df(records)
+        _df,cols,result,conditions = effects2df(records)
+        _nonnumcols = find_string_only_columns(_df[conditions])
+        df_set = {"ALL" : _df}
+        if len(_nonnumcols)>0:
+            #for _col in _nonnumcols:
+            #    try:
+            #        _df[_col].unique()
+            #    except Exception as err:
+            #        print(err)
+            #        pass
+            df_set = split_df_by_columns(_df,_nonnumcols)
+            
+                #print(_col,df[_col].values)
+        #mx = create_multidimensional_matrix()
         #if uuid is not None:
         #    df.to_excel("{}.xlsx".format(uuid),index=False)     
-
-        for endpointtype in df["endpointtype"].unique():
-            if endpointtype is None:
-                dft = df.loc[df["endpointtype"].isna()].reset_index(drop=True)
-            else:
-                dft = df.loc[df["endpointtype"]==endpointtype].reset_index(drop=True)
-            for endpoint in dft["endpoint"].unique():
-                dfe = dft.loc[dft["endpoint"]==endpoint].reset_index(drop=True)
-                for unit in dfe["unit"].unique():
-                    if unit is None:
-                        _tmp = dfe.loc[dfe["unit"].isna()].reset_index(drop=True)
-                    else:
-                        _tmp = dfe.loc[dfe["unit"]==unit].reset_index(drop=True)
-                    _tmp.dropna(how="all",inplace=True)
-                    if _tmp.shape[0] == 0:
-                        print("empty",uuid,endpointtype,endpoint,unit)
-                        continue
-
-
-                    axes = {}
-                    for _col in conditions:
-                        if _col in _tmp:
-                            _f = pd.json_normalize(_tmp[_col])
-                            if _f.empty:
-                                axis = transform_array(_tmp[_col].values)
-                                if axis is not None:
-                                    axes[_col] = ValueArray(values=axis)
-                            else:
-                                loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
-                                if loValues is not None:
-                                    axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
+        for key, df in df_set.items():
+            for endpointtype in df["endpointtype"].unique():
+                if endpointtype is None:
+                    dft = df.loc[df["endpointtype"].isna()].reset_index(drop=True)
+                else:
+                    dft = df.loc[df["endpointtype"]==endpointtype].reset_index(drop=True)
+                for endpoint in dft["endpoint"].unique():
+                    dfe = dft.loc[dft["endpoint"]==endpoint].reset_index(drop=True)
+                    for unit in dfe["unit"].unique():
+                        if unit is None:
+                            _tmp = dfe.loc[dfe["unit"].isna()].reset_index(drop=True)
+                        else:
+                            _tmp = dfe.loc[dfe["unit"]==unit].reset_index(drop=True)
+                        _tmp.dropna(how="all",inplace=True)
+                        if _tmp.shape[0] == 0:
+                            print("empty",uuid,endpointtype,endpoint,unit)
+                            continue
 
 
-                    loValues = None if _tmp["loValue"].dropna().empty else transform_array(_tmp["loValue"].values)
-                    upValues = None if _tmp["upValue"].dropna().empty else transform_array(_tmp["upValue"].values)
-                    loQualifier = None if _tmp["loQualifier"].dropna().empty else transform_array(_tmp["loQualifier"].values)
-                    upQualifier = None if _tmp["upQualifier"].dropna().empty else transform_array(_tmp["upQualifier"].values)
-                    textValue = None if _tmp["textValue"].dropna().empty else transform_array(_tmp["textValue"].values)
-                    errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
-                    errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
+                        axes = {}
+                        new_conditions = {}
+                        for _col in conditions:
+                            if _col in _nonnumcols:
+                                new_conditions[_col] = _tmp[_col].unique()[0]
+                                continue
+                            if _col in _tmp:
+                                _f = pd.json_normalize(_tmp[_col])
+                                if _f.empty:
+                                    axis = transform_array(_tmp[_col].values)
+                                    if axis is not None:
+                                        axes[_col] = ValueArray(values=axis)
+                                else:
+                                    loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
+                                    if loValues is not None:
+                                        axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
 
-                    earray = EffectArray(
-                            endpoint=endpoint,     
-                            endpointtype=endpointtype,      
-                            signal=ValueArray(
-                                unit=unit,
-                                values=textValue if loValues is None else loValues,
-                                errQualifier=errqualifier,
-                                errorValue=errvalues
-                            ),
-                            axes=axes                     
-                    )               
-                    arrays.append(earray)             
-                    #print(earray)		
-        return arrays,df            
+
+                        loValues = None if _tmp["loValue"].dropna().empty else transform_array(_tmp["loValue"].values)
+                        upValues = None if _tmp["upValue"].dropna().empty else transform_array(_tmp["upValue"].values)
+                        loQualifier = None if _tmp["loQualifier"].dropna().empty else transform_array(_tmp["loQualifier"].values)
+                        upQualifier = None if _tmp["upQualifier"].dropna().empty else transform_array(_tmp["upQualifier"].values)
+                        textValue = None if _tmp["textValue"].dropna().empty else transform_array(_tmp["textValue"].values)
+                        errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
+                        errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
+
+                        earray = EffectArray(
+                                endpoint=endpoint,     
+                                endpointtype=endpointtype,  
+                                conditions = new_conditions,    
+                                signal=ValueArray(
+                                    unit=unit,
+                                    values=textValue if loValues is None else loValues,
+                                    errQualifier=errqualifier,
+                                    errorValue=errvalues
+                                ),
+                                axes=axes                     
+                        )               
+                        arrays.append(earray)             
+                        #print(earray)		
+        return arrays,_df            
 
 ProtocolApplication = create_model("ProtocolApplication", __base__=ProtocolApplication)
 
@@ -1136,3 +1154,50 @@ def effects2df(effects, drop_parsed_cols=True):
         conditions_df.columns,
     )
 
+def find_non_numeric_columns(df):
+    # Identify columns with dtype 'object'
+    object_cols = df.select_dtypes(include='object').columns
+    
+    # Use list comprehension to check if each column can be converted to numeric
+    non_numeric_cols = [
+        col for col in object_cols
+        if pd.to_numeric(df[col], errors='coerce').isna().all()
+    ]
+    
+    return non_numeric_cols
+
+def find_string_only_columns(df):
+    # Identify columns with dtype 'object'
+    object_cols = df.select_dtypes(include='object').columns
+    
+    # Function to check if all values in the column are strings
+    def is_string_only(series):
+        return series.apply(lambda x: isinstance(x, str)).all()
+    
+    # Use list comprehension to check if each column is string only and cannot be converted to numeric
+    string_only_cols = [
+        col for col in object_cols
+        if is_string_only(df[col]) and pd.to_numeric(df[col], errors='coerce').isna().all()
+    ]
+    
+    return string_only_cols
+
+def split_df_by_columns(df, columns):
+    # Create a dictionary to hold the split DataFrames
+    split_dfs = {}
+    
+    # Identify unique combinations of values for the specified columns
+    unique_combinations = df[columns].drop_duplicates()
+    
+    for _, row in unique_combinations.iterrows():
+        # Create a filter for the current combination of values
+        filter_condition = (df[columns] == row).all(axis=1)
+        
+        # Create a new DataFrame for this combination
+        split_df = df[filter_condition]
+        
+        # Use a tuple of the unique values as the key
+        key = tuple(row)
+        split_dfs[key] = split_df
+    
+    return split_dfs

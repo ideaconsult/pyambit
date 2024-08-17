@@ -39,15 +39,17 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         print(ne.tree)
     """
     if nx_root is None:
+        print("nx_root = nx.NXroot()")
         nx_root = nx.NXroot()
 
     # https://manual.nexusformat.org/classes/base_classes/NXentry.html
     try:
         _categories_collection = ""
         if hierarchy:
-            nx_root[papp.protocol.topcategory] = nx.NXGroup()
-            if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
-                nx_root[papp.protocol.topcategory][papp.protocol.category.code] = nx.NXGroup()
+            if not papp.protocol.topcategory in nx_root:
+                nx_root[papp.protocol.topcategory] = nx.NXgroup()
+            if not papp.protocol.category.code in nx_root[papp.protocol.topcategory]:
+                nx_root[papp.protocol.topcategory][papp.protocol.category.code] = nx.NXgroup()            
             _categories_collection = "/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code)
         try:
             provider = (
@@ -57,18 +59,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             )
         except BaseException:
             provider = "@"
-
         entry_id = "{}/entry_{}_{}".format(_categories_collection,provider, papp.uuid)
     except Exception as err:
-        # print(err,papp.citation.owner)
+        # print(err)
         entry_id = "/entry_{}".format(papp.uuid)
 
     _categories_collection = "{}{}".format(_categories_collection,entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
         nx_root[entry_id].attrs["name"] = entry_id
-        #print("\n",_categories_collection, entry_id[1:])
-       
 
     nx_root["{}/entry_identifier_uuid".format(entry_id)] = papp.uuid
 
@@ -260,17 +259,17 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
 
 
 @add_ambitmodel_method(Study)
-def to_nexus(study: Study, nx_root: nx.NXroot = None):
+def to_nexus(study: Study, nx_root: nx.NXroot = None, hierarchy=False):
     if nx_root is None:
         nx_root = nx.NXroot()
     for papp in study.study:
-        papp.to_nexus(nx_root)
+        papp.to_nexus(nx_root = nx_root,hierarchy=hierarchy)
 
     return nx_root
 
 
 @add_ambitmodel_method(SubstanceRecord)
-def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None):
+def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=False):
     """
     SubstanceRecord to nexus entry (NXentry)
 
@@ -346,17 +345,17 @@ def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None):
 
     if substance.study is not None:
         for papp in substance.study:
-            papp.to_nexus(nx_root)
+            papp.to_nexus(nx_root, hierarchy=hierarchy)
 
     return nx_root
 
 
 @add_ambitmodel_method(Substances)
-def to_nexus(substances: Substances, nx_root: nx.NXroot = None):
+def to_nexus(substances: Substances, nx_root: nx.NXroot = None, hierarchy=False):
     if nx_root is None:
         nx_root = nx.NXroot()
     for substance in substances.substance:
-        substance.to_nexus(nx_root)
+        substance.to_nexus(nx_root,hierarchy)
     return nx_root
 
 
@@ -574,7 +573,10 @@ def effectarray2data(effect: EffectArray):
                 effect.axes[key].values, name=key, units=effect.axes[key].unit
             )
         )
-    return nx.tree.NXdata(signal, axes)
+    nxdata =  nx.tree.NXdata(signal, axes)
+    for key in effect.conditions:
+        nxdata.attrs[key] = effect.conditions[key]            
+    return nxdata
 
 
 def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
@@ -657,3 +659,22 @@ def extract_doi(input_str):
         return match.group(1)  # Return the matched DOI
     else:
         return None  # Return None if DOI not found
+
+def create_multidimensional_matrix(df, signal_col, *axis_cols):
+    # Extract unique values for each axis and create index mappings
+    axis_values = [sorted(df[axis].unique()) for axis in axis_cols]
+    axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
+    
+    # Determine the shape of the multidimensional matrix
+    shape = tuple(len(values) for values in axis_values)
+    
+    # Initialize the multidimensional matrix with NaNs
+    matrix = np.full(shape, np.nan)
+    
+    # Populate the matrix with signal values
+    for _, row in df.iterrows():
+        signal_value = row[signal_col]
+        indices = tuple(axis_indices[i][row[axis_cols[i]]] for i in range(len(axis_cols)))
+        matrix[indices] = signal_value
+    
+    return matrix

@@ -32,14 +32,12 @@ def test_substances(substances):
     #
     nxroot = nx.NXroot()
     #print(type(substances),dir(substances))
-    substances.to_nexus(nxroot)
+    substances.to_nexus(nxroot, hierarchy=True)
     file = os.path.join(tempfile.gettempdir(), "substances.nxs")
     print(file)
     nxroot.save(file, mode="w")
 
 def test_study(substances):
-    #
-    
     for substance in substances.substance:
         for study in substance.study:
             file = os.path.join(tempfile.gettempdir(), "study_{}.nxs".format(study.uuid))

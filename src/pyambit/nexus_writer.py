@@ -660,21 +660,3 @@ def extract_doi(input_str):
     else:
         return None  # Return None if DOI not found
 
-def create_multidimensional_matrix(df, signal_col, *axis_cols):
-    # Extract unique values for each axis and create index mappings
-    axis_values = [sorted(df[axis].unique()) for axis in axis_cols]
-    axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
-    
-    # Determine the shape of the multidimensional matrix
-    shape = tuple(len(values) for values in axis_values)
-    
-    # Initialize the multidimensional matrix with NaNs
-    matrix = np.full(shape, np.nan)
-    
-    # Populate the matrix with signal values
-    for _, row in df.iterrows():
-        signal_value = row[signal_col]
-        indices = tuple(axis_indices[i][row[axis_cols[i]]] for i in range(len(axis_cols)))
-        matrix[indices] = signal_value
-    
-    return matrix

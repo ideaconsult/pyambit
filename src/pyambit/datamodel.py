@@ -672,10 +672,11 @@ class ProtocolApplication(AmbitModel):
             df_set = split_df_by_columns(_df,_nonnumcols)
             
                 #print(_col,df[_col].values)
-        #mx = create_multidimensional_matrix()
+        
         #if uuid is not None:
         #    df.to_excel("{}.xlsx".format(uuid),index=False)     
         for key, df in df_set.items():
+            
             for endpointtype in df["endpointtype"].unique():
                 if endpointtype is None:
                     dft = df.loc[df["endpointtype"].isna()].reset_index(drop=True)
@@ -700,6 +701,8 @@ class ProtocolApplication(AmbitModel):
                             if _col in _nonnumcols:
                                 new_conditions[_col] = _tmp[_col].unique()[0]
                                 continue
+                            if "DATE" in _col:  #TBD !
+                                continue
                             if _col in _tmp:
                                 _f = pd.json_normalize(_tmp[_col])
                                 if _f.empty:
@@ -720,6 +723,10 @@ class ProtocolApplication(AmbitModel):
                         errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
                         errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
 
+                        axes_names = np.array(list(axes.keys()))
+                        #print(endpoint,endpointtype,unit,axes_names)
+                        #mx,axes_values = create_multidimensional_matrix(_tmp,"loValue",axes_names)
+                        #print(axes_values,mx.shape)
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  
@@ -1172,7 +1179,8 @@ def find_string_only_columns(df):
     
     # Function to check if all values in the column are strings
     def is_string_only(series):
-        return series.apply(lambda x: isinstance(x, str)).all()
+        # Check if all values in the series are either strings or NaN
+        return series.apply(lambda x: isinstance(x, str) or pd.isna(x)).all()
     
     # Use list comprehension to check if each column is string only and cannot be converted to numeric
     string_only_cols = [
@@ -1201,3 +1209,26 @@ def split_df_by_columns(df, columns):
         split_dfs[key] = split_df
     
     return split_dfs
+
+def create_multidimensional_matrix(df, signal_col, *axis_cols):
+    """
+    create_multidimensional_matrix(df, 'signal', axis_cols)
+    """
+
+    # Extract unique values for each axis and create index mappings
+    axis_values = [sorted(df[axis].unique()) for axis in axis_cols]
+    axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
+    
+    # Determine the shape of the multidimensional matrix
+    shape = tuple(len(values) for values in axis_values)
+    
+    # Initialize the multidimensional matrix with NaNs
+    matrix = np.full(shape, np.nan)
+    
+    # Populate the matrix with signal values
+    for _, row in df.iterrows():
+        signal_value = row[signal_col]
+        indices = tuple(axis_indices[i][row[axis_cols[i]]] for i in range(len(axis_cols)))
+        matrix[indices] = signal_value
+    
+    return matrix,axis_values

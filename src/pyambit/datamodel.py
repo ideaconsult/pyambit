@@ -132,6 +132,8 @@ class ValueArray(AmbitModel):
     values: Union[npt.NDArray, None] = None
     errQualifier: Optional[str] = None
     errorValue: Optional[Union[npt.NDArray, None]] = None
+    # but loValue - upValue need some support
+    auxiliary: Optional[Union[npt.NDArray, None]]  = None    
     model_config = ConfigDict(
             arbitrary_types_allowed=True
         )
@@ -143,9 +145,10 @@ class ValueArray(AmbitModel):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
+        auxiliary: npt.NDArray = None
     ):
         return cls(
-            values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier
+            values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier, auxiliary = auxiliary
         )
 
     def model_dump_json(self, **kwargs) -> str:
@@ -164,6 +167,7 @@ class ValueArray(AmbitModel):
             self.unit == other.unit and
             self.errQualifier == other.errQualifier and
             np.array_equal(self.values, other.values) and
+            np.array_equal(self.auxiliary, other.auxiliary) and
             np.array_equal(self.errorValue, other.errorValue)
         )
 
@@ -687,14 +691,18 @@ class ProtocolApplication(AmbitModel):
         df: pd.DataFrame, 
         signal_col: str, 
         axes: Dict[str, ValueArray],
-        alt_axes: Dict[str, List[str]] = None
-    ) -> Tuple[np.ndarray, Dict[str, ValueArray]]:
+        alt_axes: Dict[str, List[str]] = None,
+        errors_col: str = None,
+    ) -> Tuple[np.ndarray, Dict[str, ValueArray], np.ndarray]:
         """
         Create a multidimensional matrix from the DataFrame, excluding axes in alt_axes.
 
         """
 
-        axis_cols = df.columns.drop(signal_col).values
+        axis_cols = df.columns.drop(signal_col)
+        if errors_col is not None:
+            axis_cols = axis_cols.drop(errors_col)
+        axis_cols = axis_cols.values
 
         # Collect all alternative axis columns
         if alt_axes is None:
@@ -717,12 +725,15 @@ class ProtocolApplication(AmbitModel):
         shape = tuple(len(values) for values in axis_values)
         # Initialize the multidimensional matrix with NaNs
         matrix = np.full(shape, np.nan)
+        matrix_errors = None if errors_col is None else np.full(shape, np.nan) 
         
         # Populate the matrix with signal values
         for _, row in df.iterrows():
             signal_value = row[signal_col]
             indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))
             matrix[indices] = signal_value
+            if matrix_errors is not None:
+                matrix_errors[indices] = row[errors_col]
         
         for axis in primary_axis_cols:
             unique_values = sorted(df[axis].unique())
@@ -736,7 +747,7 @@ class ProtocolApplication(AmbitModel):
                         _tmp = sorted(df[alt_col].unique())
                         axes[alt_col].values = _tmp
         
-        return matrix, axes
+        return matrix, axes, matrix_errors
             
     def convert_effectrecords2array(self):
         effects: List[Union[EffectRecord, EffectArray]] = self.effects
@@ -816,12 +827,17 @@ class ProtocolApplication(AmbitModel):
                         loQualifier = None if _tmp["loQualifier"].dropna().empty else transform_array(_tmp["loQualifier"].values)
                         upQualifier = None if _tmp["upQualifier"].dropna().empty else transform_array(_tmp["upQualifier"].values)
                         textValue = None if _tmp["textValue"].dropna().empty else transform_array(_tmp["textValue"].values)
-                        errvalues = None if _tmp["errorValue"].dropna().empty else transform_array(_tmp["errorValue"].values)
                         errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
 
-                        df_axes["signal"] = loValues
+                        df_axes["loValue"] = loValues
+
+                        if _tmp["errorValue"].dropna().empty:
+                            error_col = None
+                        else:
+                            error_col = "errorValue"
+                            df_axes[error_col] = _tmp[error_col]
                         
-                        matrix, axes = self.create_multidimensional_matrix(df_axes,"signal",axes,alt_axes) 
+                        matrix, axes, matrix_errors = self.create_multidimensional_matrix(df_axes,"loValue",axes,alt_axes,error_col) 
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  
@@ -831,7 +847,7 @@ class ProtocolApplication(AmbitModel):
                                     #values=textValue if loValues is None else loValues,
                                     values=matrix,
                                     errQualifier=errqualifier,
-                                    errorValue=errvalues
+                                    errorValue=matrix_errors
                                 ),
                                 axes=axes,
                                 axis_groups= alt_axes 

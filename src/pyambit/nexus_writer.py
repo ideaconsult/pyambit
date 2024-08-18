@@ -372,6 +372,7 @@ def format_name(meta_dict, key, default=""):
     return name if isinstance(name, str) else default if math.isnan(name) else name
 
 
+@DeprecationWarning
 def nexus_data(selected_columns, group, group_df, condcols, debug=False):
     try:
         meta_dict = dict(zip(selected_columns, group))
@@ -584,19 +585,20 @@ def effectarray2data(effect: EffectArray):
     signal = nx.tree.NXfield(
         effect.signal.values, name=effect.endpoint, units=effect.signal.unit
     )
+    # uncertanties can be specified for both signal and axes through FIELDNAME_errors
     axes = []
     for key in effect.axes:
         axes.append(
             nx.tree.NXfield(
-                effect.axes[key].values, name=key, units=effect.axes[key].unit
+                effect.axes[key].values, name=key, errors=effect.axes[key].errorValue, units=effect.axes[key].unit
             )
         )
-    nxdata =  nx.tree.NXdata(signal, axes)
+    nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue)
     for key in effect.conditions:
         nxdata.attrs[key] = effect.conditions[key]            
-    index = 0    
+    
     if effect.axis_groups is not None:    
-    #otherwise we don't need indices
+        index = 0    
         for key in effect.axes:
             if is_alternate_axis(key,effect.axis_groups):
                 continue
@@ -605,7 +607,11 @@ def effectarray2data(effect: EffectArray):
         for primary_axis, alt_cols in effect.axis_groups.items():
             for alt_col in alt_cols:
                 nxdata.attrs["{}_indices".format(alt_col)] = nxdata.attrs["{}_indices".format(primary_axis)] 
+    else:
+        index = len(effect.axes)
+        #otherwise we don't need indices
 
+    nxdata.attrs["interpretation"] = "scalar" if index==0 else ("spectrum" if index==1 else "image")
     return nxdata
 
 
@@ -637,8 +643,8 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                     entry[_group_key] = nx.tree.NXgroup()
                 else:
                     entry[_group_key] = nx.tree.NXprocess()
-                    entry[_group_key]["NOTE"] = nx.tree.NXnote()
-                    entry[_group_key]["NOTE"].attrs["description"] = effect.endpointtype
+                    #entry[_group_key]["NOTE"] = nx.tree.NXnote()
+                    entry[_group_key]["description"] = effect.endpointtype
             #    entry[_group_key] = _endpointtype_groups[_group_key]
 
             entryid = "{}_{}".format(effect.endpoint, index)
@@ -647,7 +653,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 print("replacing {}/{}".format(_group_key, entryid))
 
             nxdata = effectarray2data(effect)
-            nxdata.attrs["interpretation"] = "spectrum"
+            
             entry[_group_key][entryid] = nxdata
             if _default is None:
                 entry.attrs["default"] = _group_key

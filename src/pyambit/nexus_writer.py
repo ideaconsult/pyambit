@@ -593,10 +593,11 @@ def effectarray2data(effect: EffectArray):
         )
 
     signal = nx.tree.NXfield(
-        effect.signal.values, name=effect.endpoint, units=effect.signal.unit
+        effect.signal.values, name="value", units=effect.signal.unit, long_name = effect.endpoint
     )        
+    #signal["@long_name"] = "test"
     nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue)
-    
+
     for key in effect.conditions:
         nxdata.attrs[key] = effect.conditions[key]            
     

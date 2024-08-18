@@ -2,7 +2,7 @@ import math
 import numbers
 import re
 import traceback
-from typing import List
+from typing import List, Dict
 
 import nexusformat.nexus as nx
 import numpy as np
@@ -563,6 +563,24 @@ def nexus_data(selected_columns, group, group_df, condcols, debug=False):
 
 def effectarray2data(effect: EffectArray):
 
+    def is_alternate_axis(key: str, alt_axes: Dict[str, List[str]]) -> bool:
+        """
+        Check if a given key is an alternate axis.
+
+        Parameters:
+        - key: The axis name to check.
+        - alt_axes: Dictionary where keys are primary axis names and values are lists of alternative axis names.
+
+        Returns:
+        - True if the key is an alternate axis, False otherwise.
+        """
+        if alt_axes is None:
+            return False
+        for alt_list in alt_axes.values():
+            if key in alt_list:
+                return True
+        return False
+
     signal = nx.tree.NXfield(
         effect.signal.values, name=effect.endpoint, units=effect.signal.unit
     )
@@ -576,8 +594,18 @@ def effectarray2data(effect: EffectArray):
     nxdata =  nx.tree.NXdata(signal, axes)
     for key in effect.conditions:
         nxdata.attrs[key] = effect.conditions[key]            
-    for key in effect.axes:
-        nxdata.attrs["{}_indices".format(key)] = 0        
+    index = 0    
+    if effect.axis_groups is not None:    
+    #otherwise we don't need indices
+        for key in effect.axes:
+            if is_alternate_axis(key,effect.axis_groups):
+                continue
+            nxdata.attrs["{}_indices".format(key)] = index
+            index = index + 1
+        for primary_axis, alt_cols in effect.axis_groups.items():
+            for alt_col in alt_cols:
+                nxdata.attrs["{}_indices".format(alt_col)] = nxdata.attrs["{}_indices".format(primary_axis)] 
+
     return nxdata
 
 

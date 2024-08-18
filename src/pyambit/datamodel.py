@@ -4,7 +4,7 @@ import re
 import uuid
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -683,6 +683,54 @@ class ProtocolApplication(AmbitModel):
                 f"assay_uuid={self.assay_uuid!r}, updated={self.updated!r})")
     
 
+    def create_multidimensional_matrix(self,
+        df: pd.DataFrame, 
+        signal_col: str, 
+        axes: Dict[str, ValueArray],
+        alt_axes: Dict[str, List[str]] = None
+    ) -> Tuple[np.ndarray, Dict[str, ValueArray]]:
+        """
+        Create a multidimensional matrix from the DataFrame, excluding axes in alt_axes.
+
+        """
+
+        axis_cols = df.columns.drop(signal_col).values
+
+        # Collect all alternative axis columns
+        alt_axis_cols = {alt_col for alt_list in alt_axes.values() for alt_col in alt_list}
+    
+        # Determine primary axis columns
+        primary_axis_cols = [col for col in axis_cols if col not in alt_axis_cols]
+        
+        # Extract unique values for each primary axis
+        axis_values = [sorted(df[axis].unique()) for axis in primary_axis_cols]
+        axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
+
+        #axes = {axis: sorted(df[axis].unique()) for axis in primary_axis_cols}
+        
+        # Determine the shape of the multidimensional matrix
+        shape = tuple(len(values) for values in axis_values)
+        # Initialize the multidimensional matrix with NaNs
+        matrix = np.full(shape, np.nan)
+        
+        # Populate the matrix with signal values
+        for _, row in df.iterrows():
+            signal_value = row[signal_col]
+            indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))
+            matrix[indices] = signal_value
+        
+        for axis in primary_axis_cols:
+            unique_values = sorted(df[axis].unique())
+            axes[axis].values = unique_values
+
+        # Collect alternative axis values - tbd - sorting may change order of alternative axes!
+        for primary_axis, alt_cols in alt_axes.items():
+            for alt_col in alt_cols:
+                if alt_col in df.columns:
+                    _tmp = sorted(df[alt_col].unique())
+                    axes[alt_col].values = _tmp
+        
+        return matrix, axes
             
     def convert_effectrecords2array(self):
         effects: List[Union[EffectRecord, EffectArray]] = self.effects
@@ -769,17 +817,17 @@ class ProtocolApplication(AmbitModel):
 
                         df_axes["signal"] = loValues
                         
-                        axes_cols = df_axes.columns.drop("signal").values
-
-                        #mx,axes_values = create_multidimensional_matrix(df_axes,"signal",axes_cols,alt_axes) #,[alt_axes[1:]])
-                        #print(mx.shape,axes_values)
+                        matrix, axes = self.create_multidimensional_matrix(df_axes,"signal",axes,alt_axes) 
+                        #print(matrix)
+                        #print(axes)
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  
                                 conditions = new_conditions,    
                                 signal=ValueArray(
                                     unit=unit,
-                                    values=textValue if loValues is None else loValues,
+                                    #values=textValue if loValues is None else loValues,
+                                    values=matrix,
                                     errQualifier=errqualifier,
                                     errorValue=errvalues
                                 ),
@@ -1257,24 +1305,3 @@ def split_df_by_columns(df, columns):
     
     return split_dfs
 
-
-def create_multidimensional_matrix(df, signal_col, axis_cols, alt_axes):
-    """
-    create_multidimensional_matrix(df, 'signal', axis_cols)
-    """
-    # Extract unique values for each axis and create index mappings
-    axis_values = [sorted(df[axis].unique()) for axis in axis_cols]
-    axis_indices = [{value: idx for idx, value in enumerate(values)} for values in axis_values]
-    
-    # Determine the shape of the multidimensional matrix
-    shape = tuple(len(values) for values in axis_values)
-    # Initialize the multidimensional matrix with NaNs
-    matrix = np.full(shape, np.nan)
-    #print(df)
-    # Populate the matrix with signal values
-    for _, row in df.iterrows():
-        signal_value = row[signal_col]
-        indices = tuple(axis_indices[i][row[axis_cols[i]]] for i in range(len(axis_cols)))
-        matrix[indices] = signal_value
-    #print("matrix",matrix)
-    return matrix,axis_values

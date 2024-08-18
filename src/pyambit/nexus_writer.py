@@ -582,9 +582,7 @@ def effectarray2data(effect: EffectArray):
                 return True
         return False
 
-    signal = nx.tree.NXfield(
-        effect.signal.values, name=effect.endpoint, units=effect.signal.unit
-    )
+
     # uncertanties can be specified for both signal and axes through FIELDNAME_errors
     axes = []
     for key in effect.axes:
@@ -593,7 +591,12 @@ def effectarray2data(effect: EffectArray):
                 effect.axes[key].values, name=key, errors=effect.axes[key].errorValue, units=effect.axes[key].unit
             )
         )
+
+    signal = nx.tree.NXfield(
+        effect.signal.values, name=effect.endpoint, units=effect.signal.unit
+    )        
     nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue)
+    
     for key in effect.conditions:
         nxdata.attrs[key] = effect.conditions[key]            
     

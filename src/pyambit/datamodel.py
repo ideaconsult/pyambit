@@ -697,7 +697,12 @@ class ProtocolApplication(AmbitModel):
         axis_cols = df.columns.drop(signal_col).values
 
         # Collect all alternative axis columns
-        alt_axis_cols = {alt_col for alt_list in alt_axes.values() for alt_col in alt_list}
+        if alt_axes is None:
+            alt_axis_cols = []
+        else:
+            alt_axis_cols = {alt_col for alt_list in alt_axes.values() for alt_col in alt_list}
+
+            
     
         # Determine primary axis columns
         primary_axis_cols = [col for col in axis_cols if col not in alt_axis_cols]
@@ -724,11 +729,12 @@ class ProtocolApplication(AmbitModel):
             axes[axis].values = unique_values
 
         # Collect alternative axis values - tbd - sorting may change order of alternative axes!
-        for primary_axis, alt_cols in alt_axes.items():
-            for alt_col in alt_cols:
-                if alt_col in df.columns:
-                    _tmp = sorted(df[alt_col].unique())
-                    axes[alt_col].values = _tmp
+        if alt_axes is not None:
+            for primary_axis, alt_cols in alt_axes.items():
+                for alt_col in alt_cols:
+                    if alt_col in df.columns:
+                        _tmp = sorted(df[alt_col].unique())
+                        axes[alt_col].values = _tmp
         
         return matrix, axes
             
@@ -740,23 +746,17 @@ class ProtocolApplication(AmbitModel):
             return effects,None
 
         _df,cols,result,conditions = effects2df(records)
+        
         _nonnumcols = find_string_only_columns(_df[conditions])
         df_set = {"ALL" : _df}
         if len(_nonnumcols)>0:
-            #for _col in _nonnumcols:
-            #    try:
-            #        _df[_col].unique()
-            #    except Exception as err:
-            #        print(err)
-            #        pass
             df_set = split_df_by_columns(_df,_nonnumcols)
+        #debug
             
-                #print(_col,df[_col].values)
-        
-        #if uuid is not None:
-        #    df.to_excel("{}.xlsx".format(uuid),index=False)     
+
         for key, df in df_set.items():
-            
+            #df.to_excel("{}_{}.xlsx".format(self.uuid,key),index=False)    
+
             for endpointtype in df["endpointtype"].unique():
                 if endpointtype is None:
                     dft = df.loc[df["endpointtype"].isna()].reset_index(drop=True)
@@ -770,10 +770,10 @@ class ProtocolApplication(AmbitModel):
                         else:
                             _tmp = dfe.loc[dfe["unit"]==unit].reset_index(drop=True)
                         _tmp.dropna(how="all",inplace=True)
+                        
                         if _tmp.shape[0] == 0:
                             print("empty",uuid,endpointtype,endpoint,unit)
                             continue
-
 
                         axes = {}
                         new_conditions = {}
@@ -801,6 +801,10 @@ class ProtocolApplication(AmbitModel):
                                         axes[_col] = ValueArray(values=axis)
                                         df_axes[_col] = axis
                                 else:
+                                    #nan_indices = _f[_f['loValue'].isna()].index
+                                    #print(_tmp.loc[nan_indices,_col])
+                                    _f['loValue'] = _f['loValue'].fillna(_tmp[_col])
+                                    
                                     loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
                                     if loValues is not None:
                                         axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
@@ -818,8 +822,6 @@ class ProtocolApplication(AmbitModel):
                         df_axes["signal"] = loValues
                         
                         matrix, axes = self.create_multidimensional_matrix(df_axes,"signal",axes,alt_axes) 
-                        #print(matrix)
-                        #print(axes)
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  

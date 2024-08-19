@@ -191,6 +191,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         for prm in papp.parameters:
             try:
                 value = papp.parameters[prm]
+                # Invalid path if the key contains /
+                #prm = prm.replace("/","_")
                 target = environment
                 if "instrument" in prm.lower():
                     target = instrument
@@ -229,7 +231,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     target = parameters
             except Exception as err:
                 raise Exception(
-                    "ProtocolApplication: parameters parsing error " + str(err)
+                    "ProtocolApplication: parameters parsing error {} {}".format(err,prm)
                 ) from err
 
     if not (papp.owner is None):
@@ -246,7 +248,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     except Exception as err:
         print("Exception traceback:\n%s", traceback.format_exc())
         raise Exception(
-            "ProtocolApplication: effectrecords parsing error " + str(err)
+            "ProtocolApplication: effectrecords parsing error {} {}".format(err,entry_id)
         ) from err
     
     #nx_root["/group_byexperiment"] = nx.NXgroup()
@@ -398,7 +400,7 @@ def effectarray2data(effect: EffectArray):
     for key in effect.axes:
         axes.append(
             nx.tree.NXfield(
-                effect.axes[key].values, name=key, long_name=key.replace("_"," "), 
+                effect.axes[key].values, name=key.replace("/","_"), long_name=key.replace("_"," "), 
                     errors=effect.axes[key].errorValue, units=effect.axes[key].unit
             )
         )
@@ -412,10 +414,12 @@ def effectarray2data(effect: EffectArray):
             _tmp = effect.signal.auxiliary[a]
             if _tmp.size>0:
                 aux_signals.append(nx.tree.NXfield(
-                    _tmp,   name=a, units=effect.signal.unit, long_name = "{} ({})".format(effect.endpoint,a))
+                    _tmp,   name=a.replace("/","_"), units=effect.signal.unit, long_name = "{} ({})".format(effect.endpoint,a))
                 )
             #print(a,aux_signal)
     #print(effect.endpoint,aux_signals,len(aux_signals))
+    #print(">>>",effect.endpoint,effect.signal.values)
+    #aux_signals = []
     nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue 
                              ,auxiliary_signals= None if len(aux_signals)<1 else aux_signals
                              )

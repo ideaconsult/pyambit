@@ -10,6 +10,7 @@ import numpy as np
 import numpy.typing as npt
 from pydantic import field_validator, ConfigDict, AnyUrl, BaseModel, create_model, Field, model_validator
 import pandas as pd
+import traceback
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -748,15 +749,24 @@ class ProtocolApplication(AmbitModel):
 
         # Populate the matrix with signal values
         for _, row in df.iterrows():
-            indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))            
-            if signal_col:
-                signal_value = row[signal_col]
-                matrix[indices] = signal_value
-            if matrix_errors is not None:
-                matrix_errors[indices] = row[errors_col]
-            if auxsignal_cols:
-                for a in auxsignal_cols:
-                    auxsignals[a][indices] = row[a]
+            try:
+                indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))            
+                if signal_col:
+                    signal_value = row[signal_col]
+                    if not pd.isna(signal_value):
+                        matrix[indices] = signal_value
+                if matrix_errors is not None:
+                    if not pd.isna(row[errors_col]):
+                        matrix_errors[indices] = row[errors_col]
+                if auxsignal_cols:
+                    for a in auxsignal_cols:
+                        if not pd.isna(row[a]):
+                            auxsignals[a][indices] = row[a]
+            except Exception as x:
+                print("matrix",self.uuid)
+                print(row)
+                print(primary_axis_cols)
+                print( traceback.format_exc())
         
         for axis in primary_axis_cols:
             unique_values = sorted(df[axis].unique())
@@ -837,11 +847,18 @@ class ProtocolApplication(AmbitModel):
                                 else:
                                     #nan_indices = _f[_f['loValue'].isna()].index
                                     #print(_tmp.loc[nan_indices,_col])
-                                    _f['loValue'] = _f['loValue'].fillna(_tmp[_col])
+
+                                    
+                                    try:
+                                        _f['loValue'] = _f['loValue'].fillna(_tmp[_col])
+                                    except Exception as x:
+                                        #print(_f['loValue'].apply(type).value_counts())
+                                        print(x)
+                                        print(_col,_f['loValue'],self.uuid)
                                     
                                     loValues = None if _f["loValue"].dropna().empty else transform_array(_f["loValue"].values)
                                     if loValues is not None:
-                                        axes[_col] = ValueArray(values=loValues, unit=_f["unit"].unique()[0])
+                                        axes[_col] = ValueArray(values=loValues, unit=' '.join(_f["unit"].dropna().unique()) )
                                         df_axes[_col] = loValues
 
 

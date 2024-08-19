@@ -13,12 +13,10 @@ def test_substances_load():
     with open(os.path.join(TEST_DIR,"substance.json"), "r", encoding='utf-8') as file:
         json_substance = json.load(file)
         substances = mb.Substances(**json_substance)
-        #print(substances)
         with open(os.path.join(TEST_DIR,"study.json"), "r", encoding='utf-8') as file:
             json_study = json.load(file)
             study = mb.Study(**json_study)
             substances.substance[0].study = study.study
-    #print(substances.substance[0].study[0].model_dump_json())
     data = json.loads(substances.model_dump_json())
     new_val = mb.Substances.model_construct(**data)
     assert substances == new_val
@@ -36,6 +34,18 @@ def test_valuearray_roundtrip():
     new_val = mb.ValueArray.model_construct(**data)
 
     assert val == new_val
+
+def test_valuearray_roundtrip_withaux():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """    
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.ValueArray(values=a1,unit="unit",errQualifier="SD",errorValue=a0, auxiliary= {"upValue" : a1})
+
+    data = json.loads(val.model_dump_json())
+    new_val = mb.ValueArray.model_construct(**data)
+    assert val == new_val    
 
 
 def test_value_roundtrip():
@@ -108,29 +118,7 @@ def test_effect_record_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the EffectRecord model.
     """    
-    original = mb.EffectRecord(
-        endpoint="endpoint",
-        endpointtype="type",
-        result=mb.EffectResult(
-            loQualifier=">",
-            loValue=3.14,
-            upQualifier="<",
-            upValue=6.28,
-            textValue="Sample text",
-            errQualifier="Error",
-            errorValue=0.314,
-            unit="units"
-        ),
-        conditions={
-            "condition1":  mb.Value(loValue=3.14,loQualifier=">",errorValue="0.314"),
-            "condition2": 123,
-            "condition3": 456.78,
-        },
-        idresult=1,
-        endpointGroup=2,
-        endpointSynonyms=["synonym1", "synonym2"],
-        sampleID="sample123"
-    )
+    original = create_effectrecord()
 
     data = json.loads(original.model_dump_json())
     new_instance = mb.EffectRecord.model_construct(**data)
@@ -324,6 +312,32 @@ def create_protocolapp4test():
             assay_uuid="assay-uuid",
             updated="2024-08-15"
         )
+
+def create_effectrecord():
+    
+    return mb.EffectRecord(
+        endpoint="endpoint",
+        endpointtype="type",
+        result=mb.EffectResult(
+            loQualifier=">",
+            loValue=3.14,
+            upQualifier="<",
+            upValue=6.28,
+            textValue="Sample text",
+            errQualifier="Error",
+            errorValue=0.314,
+            unit="units"
+        ),
+        conditions={
+            "condition1":  mb.Value(loValue=3.14,loQualifier=">",errorValue="0.314"),
+            "condition2": 123,
+            "condition3": 456.78,
+        },
+        idresult=1,
+        endpointGroup=2,
+        endpointSynonyms=["synonym1", "synonym2"],
+        sampleID="sample123"
+    )
 
 def test_protocol_application_roundtrip():
     """
@@ -555,3 +569,8 @@ def test_substances_roundtrip():
     data = json.loads(json_string)
     new_instance = mb.Substances.model_construct(**data)
     assert original == new_instance    
+
+def test_convert_effectrecords2array():
+    papp = create_protocolapp4test()
+    papp.effects = [create_effectrecord()]
+    arrays,_df  = papp.convert_effectrecords2array()

@@ -133,7 +133,9 @@ class ValueArray(AmbitModel):
     errQualifier: Optional[str] = None
     errorValue: Optional[Union[npt.NDArray, None]] = None
     # but loValue - upValue need some support
-    auxiliary: Optional[Union[npt.NDArray, None]]  = None    
+    # also loValue + textValue as used in composition data
+    auxiliary: Optional[Dict[str, npt.NDArray]] = None
+
     model_config = ConfigDict(
             arbitrary_types_allowed=True
         )
@@ -145,10 +147,10 @@ class ValueArray(AmbitModel):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
-        auxiliary: npt.NDArray = None
+        auxiliary: Dict[str, npt.NDArray] = None
     ):
         return cls(
-            values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier, auxiliary = auxiliary
+            values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier, auxiliary=auxiliary
         )
 
     def model_dump_json(self, **kwargs) -> str:
@@ -161,13 +163,22 @@ class ValueArray(AmbitModel):
         return json.dumps(model_dict, default=serialize, **kwargs)
 
     def __eq__(self, other):
+        def compare_auxiliary(aux1, aux2):
+            if aux1 is aux2:
+                return True
+            if aux1 is None or aux2 is None:
+                return False
+            if aux1.keys() != aux2.keys():
+                return False
+            return all(np.array_equal(aux1[k], aux2[k]) for k in aux1)
+                
         if not isinstance(other, ValueArray):
             return False
         return (
             self.unit == other.unit and
             self.errQualifier == other.errQualifier and
             np.array_equal(self.values, other.values) and
-            np.array_equal(self.auxiliary, other.auxiliary) and
+            compare_auxiliary(self.auxiliary, other.auxiliary) and
             np.array_equal(self.errorValue, other.errorValue)
         )
 
@@ -693,15 +704,20 @@ class ProtocolApplication(AmbitModel):
         axes: Dict[str, ValueArray],
         alt_axes: Dict[str, List[str]] = None,
         errors_col: str = None,
+        auxsignal_cols: List[str] = None
     ) -> Tuple[np.ndarray, Dict[str, ValueArray], np.ndarray]:
         """
         Create a multidimensional matrix from the DataFrame, excluding axes in alt_axes.
 
         """
+        axis_cols = df.columns
+        if signal_col:
+            axis_cols = axis_cols.drop(signal_col)
+        if errors_col:
+            axis_cols = axis_cols[axis_cols != errors_col]
+        if auxsignal_cols:
+            axis_cols = axis_cols[~axis_cols.isin(auxsignal_cols)]
 
-        axis_cols = df.columns.drop(signal_col)
-        if errors_col is not None:
-            axis_cols = axis_cols.drop(errors_col)
         axis_cols = axis_cols.values
 
         # Collect all alternative axis columns
@@ -709,8 +725,6 @@ class ProtocolApplication(AmbitModel):
             alt_axis_cols = []
         else:
             alt_axis_cols = {alt_col for alt_list in alt_axes.values() for alt_col in alt_list}
-
-            
     
         # Determine primary axis columns
         primary_axis_cols = [col for col in axis_cols if col not in alt_axis_cols]
@@ -724,16 +738,25 @@ class ProtocolApplication(AmbitModel):
         # Determine the shape of the multidimensional matrix
         shape = tuple(len(values) for values in axis_values)
         # Initialize the multidimensional matrix with NaNs
-        matrix = np.full(shape, np.nan)
+        matrix = np.full(shape, "" if signal_col == "textValue" else np.nan)
         matrix_errors = None if errors_col is None else np.full(shape, np.nan) 
         
+        auxsignals = {}
+        if auxsignal_cols:
+            for a in auxsignal_cols:
+                auxsignals[a] = np.full(shape, "" if a == "textValue" else np.nan)
+
         # Populate the matrix with signal values
         for _, row in df.iterrows():
-            signal_value = row[signal_col]
-            indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))
-            matrix[indices] = signal_value
+            indices = tuple(axis_indices[i][row[primary_axis_cols[i]]] for i in range(len(primary_axis_cols)))            
+            if signal_col:
+                signal_value = row[signal_col]
+                matrix[indices] = signal_value
             if matrix_errors is not None:
                 matrix_errors[indices] = row[errors_col]
+            if auxsignal_cols:
+                for a in auxsignal_cols:
+                    auxsignals[a][indices] = row[a]
         
         for axis in primary_axis_cols:
             unique_values = sorted(df[axis].unique())
@@ -746,8 +769,8 @@ class ProtocolApplication(AmbitModel):
                     if alt_col in df.columns:
                         _tmp = sorted(df[alt_col].unique())
                         axes[alt_col].values = _tmp
-        
-        return matrix, axes, matrix_errors
+
+        return matrix, axes, matrix_errors, auxsignals
             
     def convert_effectrecords2array(self):
         effects: List[Union[EffectRecord, EffectArray]] = self.effects
@@ -823,13 +846,22 @@ class ProtocolApplication(AmbitModel):
 
 
                         loValues = None if _tmp["loValue"].dropna().empty else transform_array(_tmp["loValue"].values)
-                        upValues = None if _tmp["upValue"].dropna().empty else transform_array(_tmp["upValue"].values)
                         loQualifier = None if _tmp["loQualifier"].dropna().empty else transform_array(_tmp["loQualifier"].values)
                         upQualifier = None if _tmp["upQualifier"].dropna().empty else transform_array(_tmp["upQualifier"].values)
-                        textValue = None if _tmp["textValue"].dropna().empty else transform_array(_tmp["textValue"].values)
+
                         errqualifier = _tmp["errQualifier"].unique()[0] # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
 
-                        df_axes["loValue"] = loValues
+                        #df_axes["loValue"] = loValues
+                        auxsignal_cols = []
+                        signal_col = None
+                        for tag in ["loValue","upValue","textValue"]:
+                            _values = None if _tmp[tag].dropna().empty else transform_array(_tmp[tag].values)
+                            if _values is not None:
+                                if (signal_col is None) and (tag!="textValue"):
+                                    signal_col = tag
+                                else:
+                                    auxsignal_cols.append(tag)
+                                df_axes[tag] = _values
 
                         if _tmp["errorValue"].dropna().empty:
                             error_col = None
@@ -837,7 +869,8 @@ class ProtocolApplication(AmbitModel):
                             error_col = "errorValue"
                             df_axes[error_col] = _tmp[error_col]
                         
-                        matrix, axes, matrix_errors = self.create_multidimensional_matrix(df_axes,"loValue",axes,alt_axes,error_col) 
+                        matrix, axes, matrix_errors, auxsignals = self.create_multidimensional_matrix(df_axes,signal_col,axes,alt_axes,error_col,auxsignal_cols) 
+                        
                         earray = EffectArray(
                                 endpoint=endpoint,     
                                 endpointtype=endpointtype,  
@@ -847,7 +880,8 @@ class ProtocolApplication(AmbitModel):
                                     #values=textValue if loValues is None else loValues,
                                     values=matrix,
                                     errQualifier=errqualifier,
-                                    errorValue=matrix_errors
+                                    errorValue=matrix_errors,
+                                    auxiliary= auxsignals
                                 ),
                                 axes=axes,
                                 axis_groups= alt_axes 
@@ -1238,7 +1272,6 @@ def transform_array(arr):
                         for x in arr
                     ]
                 )    
-            #print(_converted)
             return _converted        
     numeric_array = pd.to_numeric(arr, errors='coerce')
     all_nans = np.all(np.isnan(numeric_array))

@@ -588,20 +588,32 @@ def effectarray2data(effect: EffectArray):
     for key in effect.axes:
         axes.append(
             nx.tree.NXfield(
-                effect.axes[key].values, name=key, errors=effect.axes[key].errorValue, units=effect.axes[key].unit
+                effect.axes[key].values, name=key, long_name=key.replace("_"," "), 
+                    errors=effect.axes[key].errorValue, units=effect.axes[key].unit
             )
         )
-
+    
     signal = nx.tree.NXfield(
         effect.signal.values, name="value", units=effect.signal.unit, long_name = effect.endpoint
     )        
-    #signal["@long_name"] = "test"
-    nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue)
-
-    for key in effect.conditions:
-        nxdata.attrs[key] = effect.conditions[key]            
+    aux_signals = []
+    if effect.signal.auxiliary:
+        for a in effect.signal.auxiliary:
+            _tmp = effect.signal.auxiliary[a]
+            if _tmp.size>0:
+                aux_signals.append(nx.tree.NXfield(
+                    _tmp,   name=a, units=effect.signal.unit, long_name = "{} ({})".format(effect.endpoint,a))
+                )
+            #print(a,aux_signal)
+    #print(effect.endpoint,aux_signals,len(aux_signals))
+    nxdata =  nx.tree.NXdata(signal = signal, axes = None if len(axes)==0 else axes, errors = effect.signal.errorValue 
+                             ,auxiliary_signals= None if len(aux_signals)<1 else aux_signals
+                             )
+    if effect.conditions:
+        for key in effect.conditions:
+            nxdata.attrs[key] = effect.conditions[key]            
     
-    if effect.axis_groups is not None:    
+    if effect.axis_groups:    
         index = 0    
         for key in effect.axes:
             if is_alternate_axis(key,effect.axis_groups):

@@ -32,7 +32,6 @@ def test():
     substance.study = [papp]
 
     substances = Substances(substance=[substance])
-    print(dir(Substances))
     nxroot = nx.NXroot()
     substances.to_nexus(nxroot)
     file = os.path.join(tempfile.gettempdir(), "spectra_{}.nxs".format(tag))

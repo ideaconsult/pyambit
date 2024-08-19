@@ -43,6 +43,11 @@ def test_study(substances):
             file = os.path.join(tempfile.gettempdir(), "study_{}.nxs".format(study.uuid))
             print(file)
             nxroot = nx.NXroot()
-            study.to_nexus(nxroot)
-            nxroot.save(file, mode="w")
+            try:
+                study.to_nexus(nxroot)
+                nxroot.save(file, mode="w")
+            except Exception as err:
+                print(study)
+                raise err
+
             

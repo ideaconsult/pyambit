@@ -1,0 +1,3 @@
+import pyambit
+
+print("test")

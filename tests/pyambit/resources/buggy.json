@@ -1,0 +1,979 @@
+{
+  "substance": [
+    {
+      "URI": "https://apps.ideaconsult.net/gracious/substance/GRCS-f2fae007-5ab8-33ad-b4fc-cd17af45f806",
+      "composition": [],
+      "format": "xlsx",
+      "i5uuid": "GRCS-f2fae007-5ab8-33ad-b4fc-cd17af45f806",
+      "name": "ZnCdSeS, hydrophobic (530nm)",
+      "ownerName": "GRACIOUS",
+      "ownerUUID": "GRCS-2c506aa6-00ba-3bf8-af04-bde77608dde2",
+      "publicname": "ZnCdSeS",
+      "referenceSubstance": {
+        "uri": "https://apps.ideaconsult.net/gracious/query/compound/search/all?search=null"
+      },
+      "study": [
+        {
+          "assay_uuid": "7e841786-2290-395b-bf3d-99c2de2bc8dc",
+          "citation": {
+            "owner": "UKRI/CEH",
+            "title": "https://www.doi.org/10.1016/j.impact.2022.100410",
+            "year": 2019
+          },
+          "effects": [
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 114.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 7.98,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 8.4391,
+                "loValue": 102000.0,
+                "textValue": "Cd",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 52.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 17.6,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 17.6,
+                "textValue": "Cr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 24.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 129.0,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 129.0,
+                "textValue": "Mg",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 55.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 5.5833,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 155.0,
+                "textValue": "Mn",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 60.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.6563,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 1.33,
+                "textValue": "Ni",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 208.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.9115,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 4.26,
+                "textValue": "Pb",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 88.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 9.84,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 9.84,
+                "textValue": "Sr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 66.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 3330.0,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 1.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 6.5517,
+                "loValue": 345000.0,
+                "textValue": "Zn",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 114.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 6.64,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 8.4391,
+                "loValue": 99400.0,
+                "textValue": "Cd",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 52.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 14.6,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 14.6,
+                "textValue": "Cr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 24.0,
+                  "unit": "m/z"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 133.0,
+                "textValue": "Mg",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 55.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 5.5833,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 157.0,
+                "textValue": "Mn",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 60.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.6563,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 3.32,
+                "textValue": "Ni",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 208.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.9115,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 11.1,
+                "textValue": "Pb",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 88.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 10.3092,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 17.9,
+                "textValue": "Sr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 66.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 2770.0,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 2.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 6.5517,
+                "loValue": 357000.0,
+                "textValue": "Zn",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 114.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 7.73,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 8.4391,
+                "loValue": 116000.0,
+                "textValue": "Cd",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 52.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 17.0,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 17.0,
+                "textValue": "Cr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 24.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 125.0,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 125.0,
+                "textValue": "Mg",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 55.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 4.12,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 4.12,
+                "textValue": "Mn",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 60.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.6563,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 2.06,
+                "textValue": "Ni",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 208.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 0.9115,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loValue": 2.58,
+                "textValue": "Pb",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.01,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 88.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 9.54,
+                  "unit": "mg/kg"
+                },
+                "ON_MASS_/_MASS_SHIFT": null,
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "loQualifier": "<",
+                "loValue": 9.54,
+                "textValue": "Sr",
+                "unit": "mg/kg"
+              }
+            },
+            {
+              "conditions": {
+                "CALIBRATION_RANGE": {
+                  "loValue": 0.1,
+                  "unit": "mg/l"
+                },
+                "COLLISION/_REACTION_CELL": "standard mode",
+                "GAS_MODE_/_FLOW": "no gas",
+                "MASS_TO_CHARGE_RATIO": {
+                  "loValue": 66.0,
+                  "unit": "m/z"
+                },
+                "METHOD_REPORT/_DETECTION_LIMIT": {
+                  "loValue": 3230.0,
+                  "unit": "mg/kg"
+                },
+                "REPLICATE": {
+                  "loValue": 3.0
+                }
+              },
+              "endpoint": "CONCENTRATION",
+              "result": {
+                "errQualifier": "RSD %",
+                "errorValue": 6.5517,
+                "loValue": 314000.0,
+                "textValue": "Zn",
+                "unit": "mg/kg"
+              }
+            }
+          ],
+          "investigation_uuid": "35544dfe-19cf-3de1-8183-4f52ffa7ac5d",
+          "owner": {
+            "company": {
+              "name": "GRACIOUS",
+              "uuid": "GRCS-2c506aa6-00ba-3bf8-af04-bde77608dde2"
+            },
+            "substance": {
+              "uuid": "GRCS-f2fae007-5ab8-33ad-b4fc-cd17af45f806"
+            }
+          },
+          "parameters": {
+            "DATE_OF_ANALYSIS": "28/06/2019",
+            "DATE_OF_PREPARATION": "14/06/2019",
+            "DISPERSION_MEDIUM": "no",
+            "DISSOLUTION_PROGRAMME_/_MAX._T": null,
+            "E.SOP_REFERENCE": "https://zenodo.org/record/5532686",
+            "E.method": "ICP-MS",
+            "FINAL_VOLUME_OR_WEIGHT_AFTER_DISSOLUTION": {
+              "loValue": 25.0,
+              "unit": "ml"
+            },
+            "MATERIAL_STATE": "powder",
+            "OPERATOR": "Alan Lawlor",
+            "T.DISSOLUTION_MEDIUM": {
+              "loValue": 10.0,
+              "unit": "ml (0.1 m hno3) + 2ml (conc. hno3 70%)"
+            },
+            "T.DISSOLUTION_MEDIUM_VOLUME": "12.0",
+            "T.DISSOLUTION_METHOD": "heated, hot plate",
+            "T.DISSOLUTION_TIME": {
+              "loQualifier": "~",
+              "loValue": 180.0,
+              "unit": "min"
+            },
+            "T.INSTRUMENT_MODEL": "Perkin Elmer NexIon 300D",
+            "T.SAMPLE_WEIGHT": {
+              "loValue": 0.0097,
+              "unit": "g"
+            },
+            "TUNNING_DATE/AQUISITION_DATE": null,
+            "USE_OF_DISPERSANT": null,
+            "VIAL": null,
+            "__input_file": "GRACIOUS_Task 3.3_data collection_v6-.xlsx"
+          },
+          "protocol": {
+            "category": {
+              "code": "ANALYTICAL_METHODS_SECTION",
+              "term": "http://purl.obolibrary.org/obo/CHMO_0001075",
+              "title": "CHMO_0001075 Analytical Methods"
+            },
+            "endpoint": "elemental composition and chemical purity",
+            "guideline": [
+              "hotplate digestion for 90 minutes + UKAS 3504-ICP-MS SOP"
+            ],
+            "topcategory": "P-CHEM"
+          },
+          "updated": "2020-06-08 00:00:00",
+          "uuid": "XLSX-7e841786-2290-395b-bf3d-99c2de2bc8dc"
+        },
+        {
+          "assay_uuid": "1e1bacae-01f3-31be-a300-0763714b19f0",
+          "citation": {
+            "owner": "NRCWE",
+            "title": "https://www.doi.org/10.1016/j.impact.2022.100410",
+            "year": 2019
+          },
+          "effects": [
+            {
+              "conditions": {
+                "REPLICATE": null,
+                "SAMPLE_NAME": "Alumina"
+              },
+              "endpoint": "WEIGHT_LOSS_(WATER)",
+              "endpointtype": "MEAN",
+              "result": {
+                "errQualifier": "SD",
+                "loValue": -0.68,
+                "unit": "%"
+              }
+            },
+            {
+              "conditions": {
+                "REPLICATE": null,
+                "SAMPLE_NAME": "Alumina"
+              },
+              "endpoint": "WEIGHT_LOSS_(ORGANICS)",
+              "endpointtype": "MEAN",
+              "result": {
+                "errQualifier": "SD",
+                "loValue": -51.93,
+                "unit": "%"
+              }
+            }
+          ],
+          "investigation_uuid": "35544dfe-19cf-3de1-8183-4f52ffa7ac5d",
+          "owner": {
+            "company": {
+              "name": "GRACIOUS",
+              "uuid": "GRCS-2c506aa6-00ba-3bf8-af04-bde77608dde2"
+            },
+            "substance": {
+              "uuid": "GRCS-f2fae007-5ab8-33ad-b4fc-cd17af45f806"
+            }
+          },
+          "parameters": {
+            "DATE_OF_ANALYSIS": null,
+            "DATE_OF_PREPARATION": null,
+            "DISPERSION_MEDIUM": null,
+            "E.SOP_REFERENCE": "https://zenodo.org/record/5519861",
+            "E.method": "TGA-MS",
+            "FINAL_TEMPERATURE": {
+              "loValue": 800.0,
+              "unit": "℃"
+            },
+            "FINAL_TIME": {
+              "loValue": 318.0,
+              "unit": "min"
+            },
+            "HEATING/COOLING_RATE": {
+              "loValue": 2.5,
+              "unit": "℃/min"
+            },
+            "INITIAL_TEMPERATURE": {
+              "loValue": 30.0,
+              "unit": "℃"
+            },
+            "INITIAL_TIME": {
+              "loValue": 0.0,
+              "unit": "min"
+            },
+            "MATERIAL_STATE": "powder",
+            "OPERATOR": "nms",
+            "T.PURGING_GAS_FLOW": {
+              "loValue": 40.0
+            },
+            "T.REACTION_GAS_COMPOSITION": "Oxygen",
+            "T.REACTION_GAS_FLOW": {
+              "loValue": 40.0
+            },
+            "T.SAMPLE_HOLDER": "Alumina",
+            "T.SAMPLE_HOLDER_SHAPE": "Crucible shape",
+            "T.SAMPLE_WEIGHT": {
+              "loQualifier": ">=",
+              "loValue": 2.0,
+              "upQualifier": "<=",
+              "upValue": 60.12
+            },
+            "USE_OF_DISPERSANT": null,
+            "VIAL": null,
+            "__input_file": "GRACIOUS_Task 3.3_data collection_v6-.xlsx"
+          },
+          "protocol": {
+            "category": {
+              "code": "PC_THERMAL_STABILITY_SECTION",
+              "term": "http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl#C54072",
+              "title": "4.19 Stability (thermal)"
+            },
+            "endpoint": "NFA screeing mass of organic coating",
+            "guideline": [
+              "TGA-MS-screening"
+            ],
+            "topcategory": "P-CHEM"
+          },
+          "updated": "2021-07-30 00:00:00",
+          "uuid": "XLSX-dff0a488-35b7-3b6c-8b2f-763da668a46f"
+        },
+        {
+          "assay_uuid": "75fe9504-14a6-3fcd-beb9-95ce52f998ad",
+          "citation": {
+            "owner": "LEITAT",
+            "title": "https://www.doi.org/10.1016/j.impact.2022.100410",
+            "year": 0
+          },
+          "effects": [
+            {
+              "conditions": {
+                "REPLICATE": null
+              },
+              "endpoint": "FERET_MINIMAL_DIAMETER",
+              "endpointtype": "MEDIAN",
+              "result": {
+                "loValue": 5.7,
+                "unit": "nm"
+              }
+            },
+            {
+              "conditions": {
+                "REPLICATE": null
+              },
+              "endpoint": "FERET_MINIMAL_DIAMETER",
+              "endpointtype": "MEAN",
+              "result": {
+                "errorValue": 0.6,
+                "loValue": 5.7,
+                "unit": "nm"
+              }
+            }
+          ],
+          "investigation_uuid": "35544dfe-19cf-3de1-8183-4f52ffa7ac5d",
+          "owner": {
+            "company": {
+              "name": "GRACIOUS",
+              "uuid": "GRCS-2c506aa6-00ba-3bf8-af04-bde77608dde2"
+            },
+            "substance": {
+              "uuid": "GRCS-f2fae007-5ab8-33ad-b4fc-cd17af45f806"
+            }
+          },
+          "parameters": {
+            "DATE_OF_ANALYSIS": "July- 2019",
+            "DATE_OF_PREPARATION": null,
+            "E.SOP_REFERENCE": "Manual analysis",
+            "E.method": "TEM",
+            "OPERATOR": "Nathan Bossa",
+            "OTHERS": "Equipped with EDX detector",
+            "T.ACCELERATION_VOLTAGE": {
+              "loValue": 200.0,
+              "unit": "kv"
+            },
+            "T.CCD_CAMERA": "CCD GATAN 895 USC 4000",
+            "T.EXCLUDE_BORDER_PARTICLES": "y",
+            "T.FRAMESIZE": null,
+            "T.INSTRUMENT_MODEL": "JEOL 2100",
+            "T.MAGNIFICATION": null,
+            "T.MICROGRAPH_SIZE": "µm",
+            "T.PIXEL_SIZE": null,
+            "T.SAMPLE_HOLDER": {
+              "loValue": 300.0,
+              "unit": "mesh/inch with carbon film on copper"
+            },
+            "T.SAMPLE_PREPARATION": "drying on grid",
+            "T.SAMPLE_VOLUME_INTAKE": {
+              "unit": "μl",
+              "upQualifier": "<",
+              "upValue": 50.0
+            },
+            "T.TREATMENT_PARTICLES_CUT": "ignore",
+            "__input_file": "GRACIOUS_Task 3.3_data collection_v6-.xlsx"
+          },
+          "protocol": {
+            "category": {
+              "code": "PC_GRANULOMETRY_SECTION",
+              "term": "http://purl.obolibrary.org/obo/CHMO_0002119",
+              "title": "4.5 Particle size distribution (Granulometry)"
+            },
+            "endpoint": "TEM",
+            "guideline": [
+              "Manual analysis"
+            ],
+            "topcategory": "P-CHEM"
+          },
+          "updated": "2020-06-08 00:00:00",
+          "uuid": "XLSX-e960a781-eeaa-394a-9074-58186e302502"
+        }
+      ],
+      "substanceType": "NPO_589"
+    }
+  ]
+}

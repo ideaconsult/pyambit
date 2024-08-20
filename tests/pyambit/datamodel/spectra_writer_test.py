@@ -4,9 +4,10 @@ import uuid
 
 import nexusformat.nexus.tree as nx
 import numpy as np
-from pyambit.datamodel import Substances, SubstanceRecord
 from pyambit.ambit_deco import add_ambitmodel_method
+from pyambit.datamodel import SubstanceRecord, Substances
 from pyambit.nexus_spectra import spe2ambit
+
 
 def test():
     tag = "test"
@@ -17,7 +18,7 @@ def test():
     papp = spe2ambit(
         x=np.random.rand(10),
         y=np.random.rand(10),
-        meta={"@signal": "DarkSubstracted", "@axes" : ["RamanShift"]},
+        meta={"@signal": "DarkSubstracted", "@axes": ["RamanShift"]},
         instrument="BWTEK",
         wavelength=532,
         provider="FNMT",
@@ -32,7 +33,6 @@ def test():
     substance.study = [papp]
 
     substances = Substances(substance=[substance])
-    print(dir(Substances))
     nxroot = nx.NXroot()
     substances.to_nexus(nxroot)
     file = os.path.join(tempfile.gettempdir(), "spectra_{}.nxs".format(tag))

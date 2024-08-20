@@ -2,20 +2,30 @@ import math
 import numbers
 import re
 import traceback
-from typing import List
+from typing import Dict, List
 
 import nexusformat.nexus as nx
 import numpy as np
 import pandas as pd
 
+from pyambit.ambit_deco import add_ambitmodel_method
+
 # from pydantic import validate_arguments
 
-from pyambit.datamodel import Substances,SubstanceRecord, Composition,Study, ProtocolApplication, Value, EffectArray
-from pyambit.ambit_deco import add_ambitmodel_method
+from pyambit.datamodel import (
+    Composition,
+    EffectArray,
+    effects2df,
+    ProtocolApplication,
+    Study,
+    SubstanceRecord,
+    Substances,
+    Value,
+)
 
 
 @add_ambitmodel_method(ProtocolApplication)
-def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
+def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=False):
     """
     ProtocolApplication to nexus entry (NXentry)
     Tries to follow https://manual.nexusformat.org/rules.html
@@ -39,16 +49,22 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
         print(ne.tree)
     """
     if nx_root is None:
+        print("nx_root = nx.NXroot()")
         nx_root = nx.NXroot()
 
     # https://manual.nexusformat.org/classes/base_classes/NXentry.html
     try:
-        _categories_collection = None
-        #nx_root["group_byexperiment"] = nx.NXGroup()
-        if papp.protocol.topcategory not in nx_root:
-            _categories_collection = "/group_byexperiment/{}".format(papp.protocol.topcategory)
-        #if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
-        #    _categories_collection = "/group_byexperiment/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code)
+        _categories_collection = ""
+        if hierarchy:
+            if not papp.protocol.topcategory in nx_root:
+                nx_root[papp.protocol.topcategory] = nx.NXgroup()
+            if not papp.protocol.category.code in nx_root[papp.protocol.topcategory]:
+                nx_root[papp.protocol.topcategory][
+                    papp.protocol.category.code
+                ] = nx.NXgroup()
+            _categories_collection = "/{}/{}".format(
+                papp.protocol.topcategory, papp.protocol.category.code
+            )
         try:
             provider = (
                 ""
@@ -57,20 +73,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
             )
         except BaseException:
             provider = "@"
-
-        entry_id = "/entry_{}_{}".format(
-            provider, papp.uuid
-        )
+        entry_id = "{}/entry_{}_{}".format(_categories_collection, provider, papp.uuid)
     except Exception as err:
-        # print(err,papp.citation.owner)
+        # print(err)
         entry_id = "/entry_{}".format(papp.uuid)
 
-    _categories_collection = "{}{}".format(_categories_collection,entry_id)
+    _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
         nx_root[entry_id].attrs["name"] = entry_id
-        #print("\n",_categories_collection, entry_id[1:])
-       
 
     nx_root["{}/entry_identifier_uuid".format(entry_id)] = papp.uuid
 
@@ -114,14 +125,26 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
             experiment_documentation.attrs["title"] = papp.protocol.category.title
             experiment_documentation.attrs["endpoint"] = papp.protocol.endpoint
             experiment_documentation.attrs["guideline"] = papp.protocol.guideline
-            #definition is usually reference to the Nexus XML definition
-            #ambit category codes and method serve similar role
-            nx_root["{}/definition".format(entry_id)] = "/AMBIT_DATAMODEL/{}/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code,papp.protocol.guideline)
+            # definition is usually reference to the Nexus XML definition
+            # ambit category codes and method serve similar role
+            nx_root["{}/definition".format(entry_id)] = (
+                "/AMBIT_DATAMODEL/{}/{}/{}".format(
+                    papp.protocol.topcategory,
+                    papp.protocol.category.code,
+                    papp.protocol.guideline,
+                )
+            )
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
                         experiment_documentation.attrs["method"] = papp.parameters[tag]
-                        nx_root["{}/definition".format(entry_id)] = "/AMBIT_DATAMODEL/{}/{}/{}".format(papp.protocol.topcategory,papp.protocol.category.code,papp.parameters[tag])
+                        nx_root["{}/definition".format(entry_id)] = (
+                            "/AMBIT_DATAMODEL/{}/{}/{}".format(
+                                papp.protocol.topcategory,
+                                papp.protocol.category.code,
+                                papp.parameters[tag],
+                            )
+                        )
 
     except Exception as err:
         raise Exception(
@@ -130,7 +153,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
 
     nxmap = nx_root["{}/definition".format(entry_id)]
     nxmap.attrs["ProtocolApplication"] = entry_id
-    nxmap.attrs["PROTOCOL_APPLICATION_UUID"] ="{}/entry_identifier_uuid".format(entry_id)
+    nxmap.attrs["PROTOCOL_APPLICATION_UUID"] = "{}/entry_identifier_uuid".format(
+        entry_id
+    )
     nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
     nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
     nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
@@ -167,7 +192,6 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
     if sample_id not in nx_root:
         nx_root["{}/sample".format(entry_id)] = nx.NXsample()
 
-        
     sample = nx_root["{}/sample".format(entry_id)]
 
     if papp.owner is not None:
@@ -194,6 +218,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
         for prm in papp.parameters:
             try:
                 value = papp.parameters[prm]
+                # Invalid path if the key contains /
+                # prm = prm.replace("/","_")
                 target = environment
                 if "instrument" in prm.lower():
                     target = instrument
@@ -232,7 +258,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
                     target = parameters
             except Exception as err:
                 raise Exception(
-                    "ProtocolApplication: parameters parsing error " + str(err)
+                    "ProtocolApplication: parameters parsing error {} {}".format(
+                        err, prm
+                    )
                 ) from err
 
     if not (papp.owner is None):
@@ -249,30 +277,32 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None):
     except Exception as err:
         print("Exception traceback:\n%s", traceback.format_exc())
         raise Exception(
-            "ProtocolApplication: effectrecords parsing error " + str(err)
+            "ProtocolApplication: effectrecords parsing error {} {}".format(
+                err, entry_id
+            )
         ) from err
-    
-    #nx_root["/group_byexperiment"] = nx.NXgroup()
-    #print(nx_root[entry_id].attrs)
-    #nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
-    #nx_root["/group_byexperiment/{}".format("xyz")] = nx.NXlink(substance_id)
-    #nx.NXlink(nx_root[entry_id])
-    #nx_root[_categories_collection] = nx.NXlink(entry_id)
+
+    # nx_root["/group_byexperiment"] = nx.NXgroup()
+    # print(nx_root[entry_id].attrs)
+    # nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
+    # nx_root["/group_byexperiment/{}".format("xyz")] = nx.NXlink(substance_id)
+    # nx.NXlink(nx_root[entry_id])
+    # nx_root[_categories_collection] = nx.NXlink(entry_id)
     return nx_root
 
 
 @add_ambitmodel_method(Study)
-def to_nexus(study: Study, nx_root: nx.NXroot = None):
+def to_nexus(study: Study, nx_root: nx.NXroot = None, hierarchy=False):
     if nx_root is None:
         nx_root = nx.NXroot()
     for papp in study.study:
-        papp.to_nexus(nx_root)
+        papp.to_nexus(nx_root=nx_root, hierarchy=hierarchy)
 
     return nx_root
 
 
 @add_ambitmodel_method(SubstanceRecord)
-def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None):
+def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=False):
     """
     SubstanceRecord to nexus entry (NXentry)
 
@@ -348,17 +378,17 @@ def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None):
 
     if substance.study is not None:
         for papp in substance.study:
-            papp.to_nexus(nx_root)
+            papp.to_nexus(nx_root, hierarchy=hierarchy)
 
     return nx_root
 
 
 @add_ambitmodel_method(Substances)
-def to_nexus(substances: Substances, nx_root: nx.NXroot = None):
+def to_nexus(substances: Substances, nx_root: nx.NXroot = None, hierarchy=False):
     if nx_root is None:
         nx_root = nx.NXroot()
     for substance in substances.substance:
-        substance.to_nexus(nx_root)
+        substance.to_nexus(nx_root, hierarchy)
     return nx_root
 
 
@@ -375,225 +405,108 @@ def format_name(meta_dict, key, default=""):
     return name if isinstance(name, str) else default if math.isnan(name) else name
 
 
-def nexus_data(selected_columns, group, group_df, condcols, debug=False):
-    try:
-        meta_dict = dict(zip(selected_columns, group))
-        # print(group_df.columns)
-        tmp = group_df.dropna(axis=1, how="all")
-        _interpretation = "scalar"
-        ds_conc = []
-        ds_conditions = []
-        ds_response = None
-        ds_aux = []
-        ds_aux_tags = []
-        ds_errors = None
-        _attributes = {}
-        # for c in ["CONCENTRATION","CONCENTRATION_loValue",
-        #       "CONCENTRATION_SURFACE_loValue","CONCENTRATION_MASS_loValue"]:
-        #    if c in tmp.columns:
-        #        tmp = tmp.sort_values(by=[c])
-        #        c_tag = c
-        #        c_unittag = "{}_unit".format(c_tag.replace("_loValue",""))
-        #        c_unit = meta_dict[c_unittag] if c_unittag in tmp.columns else ""
-        #        ds_conc.append(nx.tree.NXfield(tmp[c].values,
-        #               name=c_tag, units=c_unit))
-
-        if "loValue" in tmp:
-            unit = meta_dict["unit"] if "unit" in meta_dict else ""
-            ds_response = nx.tree.NXfield(
-                tmp["loValue"].values, name=meta_dict["endpoint"], units=unit
-            )
-
-        if "upValue" in tmp:
-            unit = meta_dict["unit"] if "unit" in meta_dict else ""
-            name = "{}_upValue".format(meta_dict["endpoint"])
-            ds_aux.append(nx.tree.NXfield(tmp["upValue"].values, name=name, units=unit))
-            ds_aux_tags.append(name)
-
-        if "errorValue" in tmp:
-            unit = meta_dict["unit"] if "unit" in meta_dict else ""
-            ds_errors = nx.tree.NXfield(
-                tmp["errorValue"].values,
-                name="{}_errors".format(meta_dict["endpoint"]),
-                units=unit,
-            )
-
-        for tag in ["loQualifier", "upQualifier", "textValue", "errQualifier"]:
-            if tag in tmp:
-                vals = tmp[tag].unique()
-                if len(vals) == 1 and (vals[0] == "" or vals[0] == "="):
-                    # skip if all qualifiers are empty or '=' tbd also for nans
-                    continue
-                if len(vals) == 1 and tag != "textValue":
-                    # skip if all qualifiers are empty or '=' tbd also for nans
-                    _attributes[tag] = vals
-                    continue
-                str_array = np.array(
-                    [
-                        (
-                            "=".encode("ascii", errors="ignore")
-                            if (x is None)
-                            else x.encode("ascii", errors="ignore")
-                        )
-                        for x in tmp[tag].values
-                    ]
-                )
-                # nxdata.attrs[tag] =str_array
-                # print(str_array.dtype,str_array)
-                if ds_response is None and tag == "textValue":
-                    ds_response = nx.tree.NXfield(str_array, name=tag)
-                else:
-                    ds_aux.append(nx.tree.NXfield(str_array, name=tag))
-                    ds_aux_tags.append(tag)
-
-        primary_axis = None
-        for tag in condcols:
-            if tag in tmp.columns:
-                if tag in [
-                    "REPLICATE",
-                    "BIOLOGICAL_REPLICATE",
-                    "TECHNICAL_REPLICATE",
-                    "EXPERIMENT",
-                ]:
-                    unit = None
-                    try:
-                        int_array = np.array(
-                            [
-                                (
-                                    int(x)
-                                    if isinstance(x, str) and x.isdigit()
-                                    else (
-                                        np.nan
-                                        if (x is None)
-                                        or math.isnan(x)
-                                        or (not isinstance(x, numbers.Number))
-                                        else int(x)
-                                    )
-                                )
-                                for x in tmp[tag].values
-                            ]
-                        )
-                        ds_conditions.append(nx.tree.NXfield(int_array, name=tag))
-                    except BaseException:
-                        print(tmp[tag].values)
-                elif tag in ["MATERIAL", "TREATMENT"]:
-                    vals = tmp[tag].unique()
-                    if len(vals) == 1:
-                        _attributes[tag] = vals
-                
-                else:
-                    try:
-                        str_array = np.array(
-                            [
-                                (
-                                    ""
-                                    if (x is None)
-                                    else (
-                                        "{} {}".format(x['loValue'], x['unit']).encode("ascii", errors="ignore")
-                                        if isinstance(x, dict)
-                                        else x.encode("ascii", errors="ignore")
-                                    ) 
-                                        
-                                )
-                                for x in tmp[tag].values
-                            ]
-                        )
-                        # add as axis
-                        ds_conditions.append(nx.tree.NXfield(str_array, name=tag))
-                    except Exception as err_condition:
-                        print(err_condition, tag, tmp[tag].values)
-                        print("Exception traceback:\n%s", traceback.format_exc())
-            else:
-                tag_value = "{}_loValue".format(tag)
-                tag_unit = "{}_unit".format(tag)
-                if tag_value in tmp.columns:
-                    unit = (
-                        tmp[tag_unit].unique()[0] if tag_unit in tmp.columns else None
-                    )
-                    axis = nx.tree.NXfield(tmp[tag_value].values, name=tag, units=unit)
-                    ds_conc.append(axis)
-                    if (
-                        tag == "CONCENTRATION"
-                        or tag == "DOSE"
-                        or tag == "AMOUNT_OF_MATERIAL"
-                        or tag == "TREATMENT_CONDITION"
-                    ):
-                        primary_axis = tag
-                        _interpretation = "spectrum"
-
-        ds_conc.extend(ds_conditions)
-
-        if (ds_response is not None) and (len(ds_response) > 0):
-            _interpretation = "spectrum"  # means vector
-
-        if len(ds_conc) > 0:
-            nxdata = nx.tree.NXdata(ds_response, ds_conc, errors=ds_errors)
-        else:
-            nxdata = nx.tree.NXdata(ds_response, errors=ds_errors)
-        nxdata.attrs["interpretation"] = _interpretation
-
-        nxdata.name = meta_dict["endpoint"]
-        _attributes["endpoint"] = meta_dict["endpoint"]
-        if primary_axis is not None:
-            nxdata.attrs["{}_indices".format(primary_axis)] = 0
-        if "endpointtype" in meta_dict:
-            _attributes["endpointtype"] = meta_dict["endpointtype"]
-
-        # unit is per axis/signal
-        # if "unit" in meta_dict and not (meta_dict["unit"] is None):
-        #    nxdata.attrs["unit"] = meta_dict["unit"]
-
-        if len(_attributes) > 0:
-            nxdata["META"] = nx.tree.NXnote()
-            for tag in _attributes:
-                nxdata["META"].attrs[tag] = _attributes[tag]
-
-        if len(ds_aux) > 0:
-            for index, a in enumerate(ds_aux_tags):
-                nxdata[a] = ds_aux[index]
-            nxdata.attrs["auxiliary_signals"] = ds_aux_tags
-        if debug:
-            print(nxdata.tree)
-        return nxdata, meta_dict
-    except Exception as err:
-        print("Exception traceback:\n%s", traceback.format_exc())
-        raise Exception(
-            "EffectRecords: grouping error {} {} {}".format(
-                selected_columns, group, err
-            )
-        ) from err
-
-
 def effectarray2data(effect: EffectArray):
 
-    signal = nx.tree.NXfield(
-        effect.signal.values, name=effect.endpoint, units=effect.signal.unit
-    )
+    def is_alternate_axis(key: str, alt_axes: Dict[str, List[str]]) -> bool:
+        """
+        Check if a given key is an alternate axis.
+
+        Parameters:
+        - key: The axis name to check.
+        - alt_axes: Dictionary where keys are primary axis names and values are lists of alternative axis names.
+
+        Returns:
+        - True if the key is an alternate axis, False otherwise.
+        """
+        if alt_axes is None:
+            return False
+        for alt_list in alt_axes.values():
+            if key in alt_list:
+                return True
+        return False
+
+    # uncertanties can be specified for both signal and axes through FIELDNAME_errors
     axes = []
     for key in effect.axes:
         axes.append(
             nx.tree.NXfield(
-                effect.axes[key].values, name=key, units=effect.axes[key].unit
+                effect.axes[key].values,
+                name=key.replace("/", "_"),
+                long_name=key.replace("_", " "),
+                errors=effect.axes[key].errorValue,
+                units=effect.axes[key].unit,
             )
         )
-    return nx.tree.NXdata(signal, axes)
+
+    signal = nx.tree.NXfield(
+        effect.signal.values,
+        name="value",
+        units=effect.signal.unit,
+        long_name=effect.endpoint,
+    )
+    aux_signals = []
+    if effect.signal.auxiliary:
+        for a in effect.signal.auxiliary:
+            _tmp = effect.signal.auxiliary[a]
+            if _tmp.size > 0:
+                aux_signals.append(
+                    nx.tree.NXfield(
+                        _tmp,
+                        name=a.replace("/", "_"),
+                        units=effect.signal.unit,
+                        long_name="{} ({})".format(effect.endpoint, a),
+                    )
+                )
+            # print(a,aux_signal)
+    # print(effect.endpoint,aux_signals,len(aux_signals))
+    # print(">>>",effect.endpoint,effect.signal.values)
+    # aux_signals = []
+    nxdata = nx.tree.NXdata(
+        signal=signal,
+        axes=None if len(axes) == 0 else axes,
+        errors=effect.signal.errorValue,
+        auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
+    )
+    if effect.conditions:
+        for key in effect.conditions:
+            nxdata.attrs[key] = effect.conditions[key]
+
+    if effect.axis_groups:
+        index = 0
+        for key in effect.axes:
+            if is_alternate_axis(key, effect.axis_groups):
+                continue
+            nxdata.attrs["{}_indices".format(key)] = index
+            index = index + 1
+        for primary_axis, alt_cols in effect.axis_groups.items():
+            for alt_col in alt_cols:
+                nxdata.attrs["{}_indices".format(alt_col)] = nxdata.attrs[
+                    "{}_indices".format(primary_axis)
+                ]
+    else:
+        index = len(effect.axes)
+        # otherwise we don't need indices
+
+    nxdata.attrs["interpretation"] = (
+        "scalar" if index == 0 else ("spectrum" if index == 1 else "image")
+    )
+    return nxdata
 
 
 def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
 
     if entry is None:
         entry = nx.tree.NXentry()
-               
-    effectarrays_only: List[EffectArray] = list(
-        filter(lambda item: isinstance(item, EffectArray), pa.effects)
-    )
+
     _default = None
     try:
         _path = "/substance/{}".format(pa.owner.substance.uuid)
-        #print(_path, nx_root[_path].name)
+        # print(_path, nx_root[_path].name)
         substance_name = nx_root[_path].name
     except BaseException:
         substance_name = ""
+
+    effectarrays_only, df = pa.convert_effectrecords2array()
 
     if effectarrays_only:  # if we have EffectArray in the pa list
         # _endpointtype_groups = {}
@@ -604,12 +517,12 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 "DEFAULT" if effect.endpointtype is None else effect.endpointtype
             )
             if _group_key not in entry:
-                if effect.endpointtype in ("RAW_DATA","RAW DATA","RAW"):
+                if effect.endpointtype in ("RAW_DATA", "RAW DATA", "RAW", "raw data"):
                     entry[_group_key] = nx.tree.NXgroup()
                 else:
                     entry[_group_key] = nx.tree.NXprocess()
-                    entry[_group_key]["NOTE"] = nx.tree.NXnote()
-                    entry[_group_key]["NOTE"].attrs["description"] = effect.endpointtype
+                    # entry[_group_key]["NOTE"] = nx.tree.NXnote()
+                    entry[_group_key]["description"] = effect.endpointtype
             #    entry[_group_key] = _endpointtype_groups[_group_key]
 
             entryid = "{}_{}".format(effect.endpoint, index)
@@ -618,7 +531,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 print("replacing {}/{}".format(_group_key, entryid))
 
             nxdata = effectarray2data(effect)
-            nxdata.attrs["interpretation"] = "spectrum"
+
             entry[_group_key][entryid] = nxdata
             if _default is None:
                 entry.attrs["default"] = _group_key
@@ -626,200 +539,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 effect.endpoint, pa.citation.owner, substance_name
             )
 
-    df_samples, df_controls, resultcols, condcols, df_aggregated = papp2df(
-        pa,
-        _cols=["CONCENTRATION", "DOSE", "AMOUNT_OF_MATERIAL", "TREATMENT_CONDITION"],
-        drop_parsed_cols=True,
-    )
-
-    index = 1
-    df_titles = ["data", "controls", "derived"]
-    for num, df in enumerate([df_samples, df_controls, df_aggregated]):
-        if df is None:
-            continue
-
-        grouped_dataframes, selected_columns = group_samplesdf(df, cols_unique=None)
-        try:
-            for group, group_df in grouped_dataframes:
-                try:
-
-                    nxdata, meta_dict = nexus_data(
-                        selected_columns, group, group_df, condcols
-                    )
-                    try:
-                        method = entry["experiment_documentation"].attrs["method"]
-                    except BaseException:
-                        method = ""
-                    nxdata.title = "{} ({} by {}) {}".format(
-                        meta_dict["endpoint"], method, pa.citation.owner, substance_name
-                    )
-                    # print(meta_dict)
-
-                    entryid = "{}_{}_{}".format(
-                        df_titles[num], index, meta_dict["endpoint"]
-                    )
-
-                    endpointtype = format_name(meta_dict, "endpointtype", "DEFAULT")
-                    nxdata.name = meta_dict["endpoint"]
-                    endpointtype_group = getattr(entry, endpointtype, None)
-                    if endpointtype_group is None:
-                        if endpointtype == "DEFAULT" or endpointtype in ("RAW_DATA","RAW DATA","RAW"):
-                            endpointtype_group = nx.tree.NXgroup()
-                        else:
-                            endpointtype_group = nx.tree.NXprocess()
-                            endpointtype_group["NOTE"] = nx.tree.NXnote()
-                            endpointtype_group["NOTE"].attrs[
-                                "description"
-                            ] = endpointtype
-
-                        endpointtype_group.name = endpointtype
-                        entry[endpointtype] = endpointtype_group
-                        endpointtype_group.attrs["default"] = entryid
-
-                    endpointtype_group[entryid] = nxdata
-                    index = index + 1
-
-                except BaseException:
-                    print(traceback.format_exc())
-        except Exception as err:
-            raise Exception(
-                "ProtocolApplication: data parsing error {} {}".format(
-                    selected_columns, err
-                )
-            ) from err
-
     return entry
-
-
-def effects2df(effects, drop_parsed_cols=True):
-    # Convert the list of EffectRecord objects to a list of dictionaries
-    effectrecord_only = list(
-        filter(lambda item: not isinstance(item, EffectArray), effects)
-    )
-    if not effectrecord_only:  # empty
-        return (None, None, None, None)
-    effect_records_dicts = [er.dict() for er in effectrecord_only]
-    # Convert the list of dictionaries to a DataFrame
-    df = pd.DataFrame(effect_records_dicts)
-    _tag = "conditions"
-    conditions_df = pd.DataFrame(df[_tag].tolist())
-    # Drop the original 'conditions' column from the main DataFrame
-    if drop_parsed_cols:
-        df.drop(columns=[_tag], inplace=True)
-    _tag = "result"
-    result_df = pd.DataFrame(df[_tag].tolist())
-    if drop_parsed_cols:
-        df.drop(columns=[_tag], inplace=True)
-    # Concatenate the main DataFrame and the result and conditions DataFrame
-    return (
-        pd.concat([df, result_df, conditions_df], axis=1),
-        df.columns,
-        result_df.columns,
-        conditions_df.columns,
-    )
-
-
-def papp_mash(df, dfcols, condcols, drop_parsed_cols=True):
-    for _col in condcols:
-        df_normalized = pd.json_normalize(df[_col])
-        df_normalized = df_normalized.add_prefix(df[_col].name + "_")
-        # print(_col,df.shape,df_normalized.shape)
-        for col in df_normalized.columns:
-            df.loc[:, col] = df_normalized[col]
-        # if there are non dict values, leave the column,
-        # otherwise drop it, we have the values parsed
-        if drop_parsed_cols and df[_col].apply(lambda x: isinstance(x, dict)).all():
-            df.drop(columns=[_col], inplace=True)
-        # print(_col,df.shape,df_normalized.shape,df_c.shape)
-        # break
-    df.dropna(axis=1, how="all", inplace=True)
-    # df.dropna(axis=0,how="all",inplace=True)
-    return df
-
-
-# from  pyambit.datamodel.measurements import ProtocolApplication
-# pa = ProtocolApplication(**json_data)
-# from pyambit.datamodel import measurements2nexus as m2n
-# df_samples, df_controls = m2n.papp2df(pa, _col="CONCENTRATION")
-def papp2df(pa: ProtocolApplication, _cols=None, drop_parsed_cols=True):
-    if _cols is None:
-        _cols = ["CONCENTRATION"]
-    df, dfcols, resultcols, condcols = effects2df(pa.effects, drop_parsed_cols)
-    # display(df)
-    if df is None:
-        return None, None, None, None, None
-
-    df_samples = None
-    df_controls = None
-    df_aggregated = None
-    for _col in _cols:
-        if _col in condcols:
-            df_samples = df.loc[df[_col].apply(lambda x: isinstance(x, dict))]
-            df_controls = df.loc[df[_col].apply(lambda x: isinstance(x, str))]
-            # we can have aggregated values with NaN in concentraiton columns
-            df_aggregated = df.loc[df[_col].isna()]
-            break
-    if df_samples is None:
-        df_samples = df
-        df_controls = None
-    # df_string.dropna(axis=1,how="all",inplace=True)
-    df_samples = papp_mash(
-        df_samples.reset_index(drop=True), dfcols, condcols, drop_parsed_cols
-    )
-    if not (df_controls is None):
-        cols_to_process = [col for col in condcols if col != _col]
-        df_controls = papp_mash(
-            df_controls.reset_index(drop=True),
-            dfcols,
-            cols_to_process,
-            drop_parsed_cols,
-        )
-
-    if not (df_aggregated is None):
-        cols_to_process = [col for col in condcols if col != _col]
-        df_aggregated = papp_mash(
-            df_aggregated.reset_index(drop=True),
-            dfcols,
-            cols_to_process,
-            drop_parsed_cols,
-        )
-
-    return df_samples, df_controls, resultcols, condcols, df_aggregated
-
-
-#
-# def cb(selected_columns,group,group_df):
-#    display(group_df)
-# grouped_dataframes = m2n.group_samplesdf(df_samples,callback=cb)
-def group_samplesdf(df_samples, cols_unique=None, callback=None, _pattern=None):
-    if _pattern is None:
-        _pattern = r"CONCENTRATION_.*loValue$"
-
-    if cols_unique is None:
-        _pattern_c_unit = r"^CONCENTRATION.*_unit$"
-        # selected_columns = [col for col in df_samples.columns if col not in
-        # ["loValue","upValue","loQualifier","upQualifier",
-        # "errQualifier","errorValue","textValue","REPLICATE","EXPERIMENT"]
-        # and not bool(re.match(_pattern, col))]
-
-        selected_columns = [
-            col
-            for col in df_samples.columns
-            if col in ["endpoint", "endpointtype", "unit"]
-            or bool(re.match(_pattern_c_unit, col))
-        ]
-
-    else:
-        selected_columns = [col for col in cols_unique if col in df_samples.columns]
-    # dropna is to include missing values
-    try:
-        grouped_dataframes = df_samples.groupby(selected_columns, dropna=False)
-    except Exception as err:
-        raise Exception("group_samplesdf: {} {}".format(selected_columns, err)) from err
-    if callback is not None:
-        for group, group_df in grouped_dataframes:
-            callback(selected_columns, group, group_df)
-    return grouped_dataframes, selected_columns
 
 
 def extract_doi(input_str):

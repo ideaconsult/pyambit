@@ -35,6 +35,25 @@ def test_valuearray_roundtrip():
 
     assert val == new_val
 
+
+def test_valuearrayaux_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """    
+    shape = tuple((10,2,1))
+    matrix_vals =  np.random.random(shape) * 3
+    matrix_errs =  np.random.random(shape)
+    matrix_upValue =  np.random.random(shape) * 5
+    matrix_textValue =  np.full(shape, "test") 
+
+    val = mb.ValueArray(values=matrix_vals,unit="unit",errQualifier="SD",errorValue=matrix_errs,
+                    auxiliary={"upValue" : matrix_upValue, "textValue" : matrix_textValue})
+    
+    data = json.loads(val.model_dump_json())
+    new_val = mb.ValueArray.model_construct(**data)
+
+    assert val == new_val    
+
 def test_valuearray_roundtrip_withaux():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
@@ -125,12 +144,8 @@ def test_effect_record_roundtrip():
 
     assert original == new_instance
 
-# Test Function
-def test_effect_array_roundtrip():
-    """
-    Test the roundtrip serialization and deserialization of the EffectArray model.
-    """    
-    original = mb.EffectArray(
+def create_effectarray():
+    return mb.EffectArray(
         endpoint="endpoint",
         endpointtype="type",
         conditions={
@@ -166,7 +181,13 @@ def test_effect_array_roundtrip():
         endpointGroup=2,
         endpointSynonyms=["synonym1", "synonym2"],
         sampleID="sample123"
-    )
+    )    
+
+def test_effect_array_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the EffectArray model.
+    """    
+    original = create_effectarray()
 
     json_string = original.model_dump_json()
     data = json.loads(json_string)
@@ -338,6 +359,8 @@ def create_effectrecord():
         endpointSynonyms=["synonym1", "synonym2"],
         sampleID="sample123"
     )
+
+
 
 def test_protocol_application_roundtrip():
     """

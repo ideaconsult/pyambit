@@ -1,14 +1,22 @@
 import uuid
+from datetime import datetime
 from typing import Dict, List, Union
 
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
+
 import pyambit.datamodel as mx
 from pyambit.nexus_writer import to_nexus
-from datetime import datetime
 
-def spe2effect(x: npt.NDArray, y: npt.NDArray, unit="cm-1", endpointtype="RAW_DATA", meta : Dict = None):
+
+def spe2effect(
+    x: npt.NDArray,
+    y: npt.NDArray,
+    unit="cm-1",
+    endpointtype="RAW_DATA",
+    meta: Dict = None,
+):
     data_dict: Dict[str, mx.ValueArray] = {"x": mx.ValueArray(values=x, unit=unit)}
     return mx.EffectArray(
         endpoint="y",
@@ -26,7 +34,7 @@ def configure_papp(
     sample="PST",
     sample_provider="CHARISMA",
     investigation="Round Robin 1",
-    citation : mx.Citation = None,
+    citation: mx.Citation = None,
     prefix="CRMA",
     meta=None,
 ):
@@ -37,9 +45,11 @@ def configure_papp(
                 category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
             ),
             effects=[],
-        )        
+        )
     if citation is None:
-        papp.citation = mx.Citation(owner=provider, title=investigation, year=datetime.now().year)
+        papp.citation = mx.Citation(
+            owner=provider, title=investigation, year=datetime.now().year
+        )
     else:
         papp.citation = citation
     papp.investigation_uuid = str(uuid.uuid5(uuid.NAMESPACE_OID, investigation))
@@ -105,7 +115,7 @@ def spe2ambit(
             sample=sample,
             sample_provider=sample_provider,
             investigation=investigation,
-            citation  = None,
+            citation=None,
             prefix=prefix,
             meta=meta,
         )

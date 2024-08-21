@@ -448,33 +448,30 @@ def effectarray2data(effect: EffectArray):
             effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
         ).strip(),
     )
-    aux_signals = []
-    if effect.signal.auxiliary:
-        for a in effect.signal.auxiliary:
-            _tmp = effect.signal.auxiliary[a]
-            if _tmp.size > 0:
-                aux_signals.append(
-                    nx.tree.NXfield(
-                        _tmp,
-                        name=a.replace("/", "_"),
-                        units=effect.signal.unit,
-                        long_name="{} ({}) {}".format(
-                            effect.endpoint,
-                            a,
-                            "" if effect.signal.unit is None else effect.signal.unit,
-                        ).strip(),
-                    )
-                )
-            # print(a,aux_signal)
-    # print(effect.endpoint,aux_signals,len(aux_signals))
+
     # print(">>>",effect.endpoint,effect.signal.values)
     # aux_signals = []
     nxdata = nx.tree.NXdata(
         signal=signal,
         axes=None if len(axes) == 0 else axes,
-        errors=effect.signal.errorValue,
-        auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
+        errors=effect.signal.errorValue
+        #auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
     )
+    aux_signals = []
+    if effect.signal.auxiliary:
+        for a in effect.signal.auxiliary:
+            _tmp = effect.signal.auxiliary[a]
+            if _tmp.size > 0:
+                _auxname= a.replace("/", "_")
+                nxdata[_auxname] = nx.tree.NXfield(
+                        _tmp,
+                        name=_auxname,
+                        units=effect.signal.unit,
+                        long_name="{} ({}) {}".format(effect.endpoint, a,"" if effect.signal.unit is None else effect.signal.unit).strip()
+                    )
+                aux_signals.append(_auxname)
+    if len(aux_signals) > 0:
+        nxdata.attrs["auxiliary_signals"] = aux_signals 
     if effect.conditions:
         for key in effect.conditions:
             nxdata.attrs[key] = effect.conditions[key]

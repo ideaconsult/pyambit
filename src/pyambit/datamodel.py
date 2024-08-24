@@ -200,6 +200,7 @@ class ValueArray(AmbitModel):
 
 
 class EffectRecord(AmbitModel):
+    nx_name: Optional[str] = None
     endpoint: str
     endpointtype: Optional[str] = None
     result: EffectResult = None
@@ -625,6 +626,7 @@ class ProtocolApplication(AmbitModel):
     """
 
     uuid: Optional[str] = None
+    nx_name: Optional[str] = None
     # reliability: Optional[ReliabilityParams]
     interpretationResult: Optional[str] = None
     interpretationCriteria: Optional[str] = None

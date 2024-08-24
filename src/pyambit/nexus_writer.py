@@ -73,11 +73,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             )
         except BaseException:
             provider = "@"
-        entry_id = "{}/entry_{}_{}".format(_categories_collection, provider, papp.uuid)
+        if papp.nx_name is None:
+            entry_id = "{}/{}_{}".format(_categories_collection, provider, papp.uuid)
+        else:
+            entry_id = "{}/{}_{}".format(_categories_collection, "entry" if papp.nx_name is None else papp.nx_name, papp.uuid)
     except Exception as err:
         # print(err)
-        entry_id = "/entry_{}".format(papp.uuid)
+        entry_id = "/{}_{}".format("entry" if papp.nx_name is None else papp.nx_name,papp.uuid)
 
+    print(entry_id)
     _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
@@ -542,7 +546,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                 entry.attrs["default"] = _group_key
             nxdata.title = "{} (by {}) {}".format(
                 effect.endpoint, pa.citation.owner, substance_name
-            )
+            ) if pa.nx_name is None else pa.nx_name
 
     return entry
 

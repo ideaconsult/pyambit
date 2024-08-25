@@ -147,7 +147,7 @@ class BaseValueArray(AmbitModel):
     errorValue: Optional[Union[npt.NDArray, None]] = None
     # but loValue - upValue need some support
     # also loValue + textValue as used in composition data
-    #See ValueAuxArray
+    #See ValueArray
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -187,7 +187,7 @@ class BaseValueArray(AmbitModel):
         )
 
 class ValueArray(BaseValueArray):
-    auxiliary: Optional[Dict[str, npt.NDArray]] = None
+    auxiliary: Optional[Dict[str, Union[npt.NDArray, 'BaseValueArray']]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
     @classmethod
@@ -197,7 +197,7 @@ class ValueArray(BaseValueArray):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
-        auxiliary: Dict[str, npt.NDArray] = None,
+        auxiliary: Dict[str, Union[npt.NDArray, 'BaseValueArray']] = None,
     ):
         return cls(
             values=values,
@@ -229,11 +229,15 @@ class ValueArray(BaseValueArray):
         def serialize(obj):
             if isinstance(obj, np.ndarray):
                 return obj.tolist()  # Convert NumPy arrays to lists
+            if isinstance(obj, BaseValueArray):
+                return obj.model_dump()  # Serialize BaseValueArray to a dictionary
             raise TypeError(f"Type {type(obj).__name__} not serializable")
 
         # Dump the model to a dictionary and then serialize it to JSON
         model_dict = self.model_dump()
         return json.dumps(model_dict, default=serialize, **kwargs)
+    
+    
 
 
 class EffectRecord(AmbitModel):

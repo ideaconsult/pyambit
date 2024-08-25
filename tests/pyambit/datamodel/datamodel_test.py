@@ -24,6 +24,20 @@ def test_substances_load():
     assert substances == new_val
 
 
+def test_basevaluearray_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.BaseValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0)
+
+    data = json.loads(val.model_dump_json())
+    print(data)
+    new_val = mb.BaseValueArray.model_construct(**data)
+
+    assert val == new_val
+
 def test_valuearray_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
@@ -42,7 +56,7 @@ def test_valuearrayaux_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
     """
-    shape = tuple((10, 2, 1))
+    shape = tuple((3, 2, 1))
     matrix_vals = np.random.random(shape) * 3
     matrix_errs = np.random.random(shape)
     matrix_upValue = np.random.random(shape) * 5
@@ -58,7 +72,10 @@ def test_valuearrayaux_roundtrip():
 
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
-
+    for key in val.auxiliary:
+        print("old",key,type(val.auxiliary[key]))
+    for key in new_val.auxiliary:
+        print("new",key,type(new_val.auxiliary[key]))
     assert val == new_val
 
 
@@ -78,6 +95,7 @@ def test_valuearray_roundtrip_withaux():
 
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
+    print(val,print(new_val))
     assert val == new_val
 
 

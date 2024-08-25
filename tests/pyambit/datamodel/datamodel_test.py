@@ -98,6 +98,29 @@ def test_valuearray_roundtrip_withaux():
     print(val,print(new_val))
     assert val == new_val
 
+def test_valuearray_roundtrip_with_arrayaux():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """
+
+    b1: npt.NDArray[np.float64] = np.ones(10)
+    aux = mb.BaseValueArray(values=b1,unit="bunit")
+
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.ValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        auxiliary={"upValue": a1, "array" : aux},
+    )
+
+    data = json.loads(val.model_dump_json())
+    new_val = mb.ValueArray.model_construct(**data)
+    #print(val,print(new_val))
+    assert val == new_val
+
 
 def test_value_roundtrip():
     """

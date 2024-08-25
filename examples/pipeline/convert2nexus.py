@@ -98,13 +98,17 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         "Replicate": mx.ValueArray(values=np.array(unique_replicates), unit=None),
                         "Raman shift": mx.ValueArray(values=spe_x, unit="cm-1")
                     }   
-                    papp.effects.append(mx.EffectArray(
-                            endpoint="Intensity",
+                    ea = mx.EffectArray(
+                            endpoint="Raman intensity",
                             endpointtype="RAW_DATA",
                             signal=mx.ValueArray(values=array_2d, unit="a.u."),
                             axes=data_dict,
                             #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}
-                    ))              
+                            conditions={ "grouped_by" : ', '.join(map(str, group_keys)) }
+                    )
+                    print(ea.nx_name )
+                    ea.nx_name = f'{sample} {subfolder}'
+                    papp.effects.append(ea)      
                 else:
                     signal = None
                     signal_name = None
@@ -116,9 +120,9 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         spe_x = row['spe'].x
                         replicate_number = row['replicate']
                         if signal is None:
-                            signal_name = "Intensity"
+                            signal_name = "Raman intensity"
                             signal = spe_y
-                            data_dict : Dict[str, mx.ValueArray] = { "Raman shift": mx.ValueArray(values=spe_x, unit="cm-1")}
+                            data_dict : Dict[str, mx.ValueArray] = { "Raman shift": mx.ValueArray(values=spe_x, unit="1/cm")}
                         else:
                             auxiliary["{}".format(row["basename"])] = spe_y   
                     #print(papp.uuid,auxiliary)                           
@@ -128,8 +132,9 @@ def process_files(root_folder,df,meta,multidimensional=False):
                             signal=mx.ValueArray(values=signal, unit="a.u.",auxiliary = auxiliary),
                             axes=data_dict,
                             #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}
+                            conditions={ "grouped_by" : ', '.join(map(str, group_keys)) }
                     )
-                    ea.nx_name = "test" 
+                    ea.nx_name = f'{sample} {subfolder}'
                     papp.effects.append(ea)
                     #print(spe.meta)
                     #ax = spe.plot(ax=ax,label="{} {}".format(row["Instrument/OP ID"],sample))

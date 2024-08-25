@@ -166,6 +166,21 @@ class BaseValueArray(AmbitModel):
             errQualifier=errQualifier
         )
 
+    @classmethod
+    def model_construct(cls, **data):
+        def deserialize(value):
+            if isinstance(value, list):
+                return np.array(value)  # Convert lists back to numpy arrays
+            return value
+
+        values = deserialize(data.get("values"))
+        unit = data.get("unit")
+        errQualifier = data.get("errQualifier")
+        errorValue = deserialize(data.get("errorValue"))
+
+        return cls(values=values, unit=unit, errQualifier=errQualifier, errorValue=errorValue)
+
+
     def model_dump_json(self, **kwargs) -> str:
         def serialize(obj):
             if isinstance(obj, np.ndarray):
@@ -207,6 +222,42 @@ class ValueArray(BaseValueArray):
             auxiliary=auxiliary,
         )
 
+    @classmethod
+    def model_construct(cls, **data):
+        def deserialize(value):
+            if isinstance(value, list):
+                return np.array(value)  # Convert lists back to numpy arrays
+            return value
+
+        base_data = {k: deserialize(v) for k, v in data.items() if k != "auxiliary"}
+        base_instance = BaseValueArray.model_construct(**base_data)
+        
+        auxiliary_data = data.get("auxiliary", {})
+        
+        if auxiliary_data is not None:
+            auxiliary = {}
+            for key, value in auxiliary_data.items():
+                if isinstance(value, dict):  # Check if it's a dictionary representing a BaseValueArray
+                    auxiliary[key] = BaseValueArray.model_construct(**value)
+                else:
+                    auxiliary[key] = deserialize(value)
+        else:
+            auxiliary = None
+        
+        return cls(
+            values=base_instance.values,
+            unit=base_instance.unit,
+            errQualifier=base_instance.errQualifier,
+            errorValue=base_instance.errorValue,
+            auxiliary=auxiliary
+        )
+    def model_dump(self):
+        base_dict = super().model_dump()
+        return {
+            **base_dict,
+            "auxiliary": self.auxiliary
+        }
+    
     def __eq__(self, other):
         if not isinstance(other, ValueArray):
             return False
@@ -233,7 +284,6 @@ class ValueArray(BaseValueArray):
                 return obj.model_dump()  # Serialize BaseValueArray to a dictionary
             raise TypeError(f"Type {type(obj).__name__} not serializable")
 
-        # Dump the model to a dictionary and then serialize it to JSON
         model_dict = self.model_dump()
         return json.dumps(model_dict, default=serialize, **kwargs)
     

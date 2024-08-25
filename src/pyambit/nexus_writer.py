@@ -21,6 +21,7 @@ from pyambit.datamodel import (
     SubstanceRecord,
     Substances,
     Value,
+    BaseValueArray
 )
 
 
@@ -81,7 +82,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         # print(err)
         entry_id = "/{}_{}".format("entry" if papp.nx_name is None else papp.nx_name,papp.uuid)
 
-    print(entry_id)
+    #print(entry_id)
     _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
@@ -465,14 +466,22 @@ def effectarray2data(effect: EffectArray):
     aux_signals = []
     if effect.signal.auxiliary:
         for a in effect.signal.auxiliary:
-            _tmp = effect.signal.auxiliary[a]
+            item = effect.signal.auxiliary[a]
+            if isinstance(item, BaseValueArray):
+                _tmp = item.values
+                _tmp_unit = item.unit
+            elif isinstance(item, np.ndarray):
+                _tmp = item
+                _tmp_unit = effect.signal.unit
+                
+
             if _tmp.size > 0:
                 _auxname= a.replace("/", "_")
                 nxdata[_auxname] = nx.tree.NXfield(
                         _tmp,
                         name=_auxname,
-                        units=effect.signal.unit,
-                        long_name="{} ({}) {}".format(effect.endpoint, a,"" if effect.signal.unit is None else effect.signal.unit).strip()
+                        units=_tmp_unit,
+                        long_name="{} ({}) {}".format(effect.endpoint, a,"" if _tmp_unit is None else _tmp_unit).strip()
                     )
                 aux_signals.append(_auxname)
     if len(aux_signals) > 0:

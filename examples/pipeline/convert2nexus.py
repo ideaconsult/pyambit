@@ -34,38 +34,41 @@ def read_template(template_path):
 
 def process_files(root_folder,df,meta,multidimensional=False):
     substances = []
+    
     for sample in df["Sample"].unique():
         substance = mx.SubstanceRecord(name=sample, publicname=sample, ownerName=provider)
-        substance.i5uuid = "{}-{}".format(prefix, uuid.uuid5(uuid.NAMESPACE_OID, sample))        
-        papp =  mx.ProtocolApplication(
-            protocol=mx.Protocol(
-                topcategory="P-CHEM",
-                category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
-            ),
-            effects=[],
-            )
-        papp.nx_name = "{}".format(sample)
-        configure_papp(
-            papp,  instrument="{} {}".format(meta["Make"].values[0],meta["Model"].values[0]),  wavelength=meta["Wavelength, nm"].values[0], 
-            provider=meta["Notes"].values[0],
-            sample=sample,
-            sample_provider=provider,
-            investigation=investigation,
-            citation =  mx.Citation(
-                owner=meta["Notes"].values[0], title=investigation, year=2023),
-            prefix=prefix,
-            meta=None)        
-        df_sample = df.loc[df["Sample"]==sample]
-        #plt.figure()
-        ax = None
-        for subfolder in df_sample["Path"].unique():
-            df_subfolder = df_sample.loc[df["Path"]==subfolder]
+        substance.i5uuid = "{}-{}".format(prefix, uuid.uuid5(uuid.NAMESPACE_OID, sample))     
+        substance.study = []  
+        df_sample = df.loc[df["Sample"]==sample] 
+        grouped_path_instrument = df_sample.groupby(['Path', 'Instrument/OP ID'])
+        for instrument_keys, df_subfolder in grouped_path_instrument:
+            subfolder = instrument_keys[0].split("/")[0]
+            papp =  mx.ProtocolApplication(
+                protocol=mx.Protocol(
+                    topcategory="P-CHEM",
+                    category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
+                ),
+                effects=[],
+                )
 
+            _investigation = "{}.{}".format(subfolder,investigation)
+            configure_papp(
+                papp,  instrument="{} {}".format(meta["Make"].values[0],meta["Model"].values[0]),  
+                wavelength=meta["Wavelength, nm"].values[0], 
+                provider=meta["Notes"].values[0],
+                sample=sample,
+                sample_provider=provider,
+                investigation=_investigation,
+                citation =  mx.Citation(
+                    owner=meta["Notes"].values[0], title=investigation, year=2023),
+                prefix=prefix,
+                meta=None)   
+            papp.nx_name = "{} {}".format(subfolder,sample)                 
             replicate="Measurement #"
             spectra = []
             for index, row in df_subfolder.iterrows():
                 try:
-                    spe = rc2.spectrum.from_local_file(os.path.join(root_folder,row["Path"],row["Basename"]).strip())
+                    spe = rc2.spectrum.from_local_file(os.path.join(root_folder,instrument_keys[0],row["Basename"]).strip())
                     spectra.append({"spe" : spe, "minx" : min(spe.x), "maxx" : max(spe.x), "bins" : len(spe.x), 
                                     "replicate" : row[replicate], "meta" : spe.meta, "basename" : row["Basename"]})
                     
@@ -73,7 +76,7 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     print(row["Filename"],err)
 
             df_spectra = pd.DataFrame(spectra) 
-            #print(df_spectra.shape)       
+
             grouped = df_spectra.groupby(['minx', 'maxx', 'bins'])
             for group_keys, group_df in grouped:
                 #print(row[replicate],sample,subfolder,row["Basename"],group_keys)
@@ -118,13 +121,17 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     for i, (index, row) in enumerate(group_df.iterrows()):
                         spe_y = row['spe'].y
                         spe_x = row['spe'].x
+                        _name = row['spe'].meta["@signal"] if "@signal" in row['spe'].meta.get_all_keys() else "Raman intensity"
+                        _axes = row['spe'].meta["@axes"] if "@axes" in row['spe'].meta.get_all_keys() else ["Raman shift"]
+
+                        print(_axes)
                         replicate_number = row['replicate']
                         if signal is None:
-                            signal_name = "Raman intensity"
+                            signal_name = "Raman intensity" if _name == "" else _name
                             signal = spe_y
                             data_dict : Dict[str, mx.ValueArray] = { "Raman shift": mx.ValueArray(values=spe_x, unit="1/cm")}
                         else:
-                            auxiliary["{}".format(row["basename"])] = spe_y   
+                            auxiliary["{}".format(row["basename"])] = mx.BaseValueArray(values=spe_y,unit="a.u")
                     #print(papp.uuid,auxiliary)                           
                     ea = mx.EffectArray(
                             endpoint=signal_name,
@@ -149,7 +156,7 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     #    conditions={replicate : row[replicate]}
                     #))    
                 
-        substance.study = [papp] 
+            substance.study.append(papp)
         substances.append(substance)       
     return mx.Substances(substance=substances)
 

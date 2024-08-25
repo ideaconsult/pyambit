@@ -139,7 +139,7 @@ class EffectResult(AmbitModel):
 EffectResult = create_model("EffectResult", __base__=EffectResult)
 
 
-class ValueArray(AmbitModel):
+class BaseValueArray(AmbitModel):
     unit: Optional[str] = None
     # the arrays can in fact contain strings, we don't need textValue!
     values: Union[npt.NDArray, None] = None
@@ -147,10 +147,49 @@ class ValueArray(AmbitModel):
     errorValue: Optional[Union[npt.NDArray, None]] = None
     # but loValue - upValue need some support
     # also loValue + textValue as used in composition data
-    auxiliary: Optional[Dict[str, npt.NDArray]] = None
+    #See ValueAuxArray
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @classmethod
+    def create(
+        cls,
+        values: npt.NDArray = None,
+        unit: str = None,
+        errorValue: npt.NDArray = None,
+        errQualifier: str = None
+    ):
+        return cls(
+            values=values,
+            unit=unit,
+            errorValue=errorValue,
+            errQualifier=errQualifier
+        )
+
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert NumPy arrays to lists
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+
+        # Dump the model to a dictionary and then serialize it to JSON
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
+
+    def __eq__(self, other):
+        if not isinstance(other, BaseValueArray):
+            return False
+        return (
+            self.unit == other.unit
+            and self.errQualifier == other.errQualifier
+            and np.array_equal(self.values, other.values)
+            and np.array_equal(self.errorValue, other.errorValue)
+        )
+
+class ValueArray(BaseValueArray):
+    auxiliary: Optional[Dict[str, npt.NDArray]] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     @classmethod
     def create(
         cls,
@@ -168,6 +207,24 @@ class ValueArray(AmbitModel):
             auxiliary=auxiliary,
         )
 
+    def __eq__(self, other):
+        if not isinstance(other, ValueArray):
+            return False
+        return (
+            super().__eq__(other)
+            and self.compare_auxiliary(self.auxiliary, other.auxiliary)
+        )
+
+    @staticmethod
+    def compare_auxiliary(aux1, aux2):
+        if aux1 is aux2:
+            return True
+        if aux1 is None or aux2 is None:
+            return False
+        if aux1.keys() != aux2.keys():
+            return False
+        return all(np.array_equal(aux1[k], aux2[k]) for k in aux1)
+
     def model_dump_json(self, **kwargs) -> str:
         def serialize(obj):
             if isinstance(obj, np.ndarray):
@@ -177,26 +234,6 @@ class ValueArray(AmbitModel):
         # Dump the model to a dictionary and then serialize it to JSON
         model_dict = self.model_dump()
         return json.dumps(model_dict, default=serialize, **kwargs)
-
-    def __eq__(self, other):
-        def compare_auxiliary(aux1, aux2):
-            if aux1 is aux2:
-                return True
-            if aux1 is None or aux2 is None:
-                return False
-            if aux1.keys() != aux2.keys():
-                return False
-            return all(np.array_equal(aux1[k], aux2[k]) for k in aux1)
-
-        if not isinstance(other, ValueArray):
-            return False
-        return (
-            self.unit == other.unit
-            and self.errQualifier == other.errQualifier
-            and np.array_equal(self.values, other.values)
-            and compare_auxiliary(self.auxiliary, other.auxiliary)
-            and np.array_equal(self.errorValue, other.errorValue)
-        )
 
 
 class EffectRecord(AmbitModel):

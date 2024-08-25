@@ -160,6 +160,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     nxmap.attrs["PROTOCOL_APPLICATION_UUID"] = "{}/entry_identifier_uuid".format(
         entry_id
     )
+    #tbd make these links
     nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
     nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
     nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
@@ -499,6 +500,7 @@ def effectarray2data(effect: EffectArray):
     nxdata.attrs["interpretation"] = (
         "scalar" if index == 0 else ("spectrum" if index == 1 else "image")
     )
+    nxdata.title = effect.nx_name
     return nxdata
 
 
@@ -544,9 +546,11 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
             entry[_group_key][entryid] = nxdata
             if _default is None:
                 entry.attrs["default"] = _group_key
-            nxdata.title = "{} (by {}) {}".format(
-                effect.endpoint, pa.citation.owner, substance_name
-            ) if pa.nx_name is None else pa.nx_name
+
+            if nxdata.title is None:
+                nxdata.title = "{} (by {}) {}".format(
+                    effect.endpoint, pa.citation.owner, substance_name
+                ) if pa.nx_name is None else pa.nx_name
 
     return entry
 

@@ -38,6 +38,20 @@ def test_basevaluearray_roundtrip():
 
     assert val == new_val
 
+def test_metavaluearray_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the MetaValueArray model.
+    """
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.MetaValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0 ,conditions={"test" : "test"})
+
+    data = json.loads(val.model_dump_json())
+    print(data)
+    new_val = mb.MetaValueArray.model_construct(**data)
+
+    assert val == new_val    
+
 def test_valuearray_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
@@ -104,7 +118,7 @@ def test_valuearray_roundtrip_with_arrayaux():
     """
 
     b1: npt.NDArray[np.float64] = np.ones(10)
-    aux = mb.BaseValueArray(values=b1,unit="bunit")
+    aux = mb.MetaValueArray(values=b1,unit="bunit")
 
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)

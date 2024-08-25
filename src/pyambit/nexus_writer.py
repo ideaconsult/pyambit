@@ -21,7 +21,7 @@ from pyambit.datamodel import (
     SubstanceRecord,
     Substances,
     Value,
-    BaseValueArray
+    MetaValueArray
 )
 
 
@@ -467,12 +467,16 @@ def effectarray2data(effect: EffectArray):
     if effect.signal.auxiliary:
         for a in effect.signal.auxiliary:
             item = effect.signal.auxiliary[a]
-            if isinstance(item, BaseValueArray):
+            if isinstance(item, MetaValueArray):
                 _tmp = item.values
                 _tmp_unit = item.unit
+                _tmp_meta = item.conditions
             elif isinstance(item, np.ndarray):
                 _tmp = item
                 _tmp_unit = effect.signal.unit
+                _tmp_meta = None
+            else:
+                continue
                 
 
             if _tmp.size > 0:
@@ -483,6 +487,9 @@ def effectarray2data(effect: EffectArray):
                         units=_tmp_unit,
                         long_name="{} ({}) {}".format(effect.endpoint, a,"" if _tmp_unit is None else _tmp_unit).strip()
                     )
+                if _tmp_meta is not None:
+                    for key in _tmp_meta:
+                        nxdata[_auxname].attrs[key] = _tmp_meta[key]
                 aux_signals.append(_auxname)
     if len(aux_signals) > 0:
         nxdata.attrs["auxiliary_signals"] = aux_signals 

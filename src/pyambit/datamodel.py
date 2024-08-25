@@ -201,8 +201,58 @@ class BaseValueArray(AmbitModel):
             and np.array_equal(self.errorValue, other.errorValue)
         )
 
+class MetaValueArray(BaseValueArray):
+    conditions: Optional[Dict[str, str]] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @classmethod
+    def create(
+        cls,
+        values: npt.NDArray = None,
+        unit: str = None,
+        errorValue: npt.NDArray = None,
+        errQualifier: str = None,
+        conditions: Optional[Dict[str, str]] = None
+    ):
+        return cls(
+            values=values,
+            unit=unit,
+            errorValue=errorValue,
+            errQualifier=errQualifier,
+            conditions=conditions
+        )
+
+    @classmethod
+    def model_construct(cls, **data):
+        base_instance = super().model_construct(**data)
+        conditions = data.get("conditions", None)
+        return cls(
+            values=base_instance.values,
+            unit=base_instance.unit,
+            errorValue=base_instance.errorValue,
+            errQualifier=base_instance.errQualifier,
+            conditions=conditions
+        )
+
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert NumPy arrays to lists
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
+
+    def __eq__(self, other):
+        if not isinstance(other, MetaValueArray):
+            return False
+        return (
+            super().__eq__(other)
+            and self.conditions == other.conditions
+        )
+
 class ValueArray(BaseValueArray):
-    auxiliary: Optional[Dict[str, Union[npt.NDArray, 'BaseValueArray']]] = None
+    auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
     @classmethod
@@ -212,7 +262,7 @@ class ValueArray(BaseValueArray):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
-        auxiliary: Dict[str, Union[npt.NDArray, 'BaseValueArray']] = None,
+        auxiliary: Dict[str, Union[npt.NDArray, 'MetaValueArray']] = None,
     ):
         return cls(
             values=values,
@@ -230,15 +280,15 @@ class ValueArray(BaseValueArray):
             return value
 
         base_data = {k: deserialize(v) for k, v in data.items() if k != "auxiliary"}
-        base_instance = BaseValueArray.model_construct(**base_data)
+        base_instance = MetaValueArray.model_construct(**base_data)
         
         auxiliary_data = data.get("auxiliary", {})
         
         if auxiliary_data is not None:
             auxiliary = {}
             for key, value in auxiliary_data.items():
-                if isinstance(value, dict):  # Check if it's a dictionary representing a BaseValueArray
-                    auxiliary[key] = BaseValueArray.model_construct(**value)
+                if isinstance(value, dict):  # Check if it's a dictionary representing a MetaValueArray
+                    auxiliary[key] = MetaValueArray.model_construct(**value)
                 else:
                     auxiliary[key] = deserialize(value)
         else:

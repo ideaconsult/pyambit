@@ -42,7 +42,9 @@ def process_files(root_folder,df,meta,multidimensional=False):
         df_sample = df.loc[df["Sample"]==sample] 
         grouped_path_instrument = df_sample.groupby(['Path', 'Instrument/OP ID'])
         for instrument_keys, df_subfolder in grouped_path_instrument:
+            print(instrument_keys)
             subfolder = instrument_keys[0].split("/")[0]
+            instrument_id = instrument_keys[1]
             papp =  mx.ProtocolApplication(
                 protocol=mx.Protocol(
                     topcategory="P-CHEM",
@@ -63,7 +65,7 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     owner=meta["Notes"].values[0], title=investigation, year=2023),
                 prefix=prefix,
                 meta=None)   
-            papp.nx_name = "{} {}".format(subfolder,sample)                 
+            papp.nx_name = "{} {} {}".format(subfolder,instrument_id, sample)                 
             replicate="Measurement #"
             spectra = []
             for index, row in df_subfolder.iterrows():
@@ -121,17 +123,31 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     for i, (index, row) in enumerate(group_df.iterrows()):
                         spe_y = row['spe'].y
                         spe_x = row['spe'].x
-                        _name = row['spe'].meta["@signal"] if "@signal" in row['spe'].meta.get_all_keys() else "Raman intensity"
-                        _axes = row['spe'].meta["@axes"] if "@axes" in row['spe'].meta.get_all_keys() else ["Raman shift"]
 
-                        print(_axes)
+                        _name = "Raman intensity"
+                        _axes = ["Raman shift"]
+                        _signal_meta = None
+                        _spemeta = None
+                        for key in row['spe'].meta.get_all_keys():
+                            if key == "@signal":
+                                _name = row['spe'].meta[key]
+                            elif key == "@axes":
+                                _axes = row['spe'].meta[key]
+                            else:
+                                if _spemeta is None:
+                                    _spemeta = {}
+                                _spemeta[f'META_{key}'] = str(row['spe'].meta[key])
+                        #_name = row['spe'].meta["@signal"] if "@signal" in row['spe'].meta.get_all_keys() else "Raman intensity"
+                        #_axes = row['spe'].meta["@axes"] if "@axes" in row['spe'].meta.get_all_keys() else ["Raman shift"]
+
                         replicate_number = row['replicate']
                         if signal is None:
                             signal_name = "Raman intensity" if _name == "" else _name
                             signal = spe_y
+                            _signal_meta = _spemeta
                             data_dict : Dict[str, mx.ValueArray] = { "Raman shift": mx.ValueArray(values=spe_x, unit="1/cm")}
                         else:
-                            auxiliary["{}".format(row["basename"])] = mx.BaseValueArray(values=spe_y,unit="a.u")
+                            auxiliary["{}".format(row["basename"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
                     #print(papp.uuid,auxiliary)                           
                     ea = mx.EffectArray(
                             endpoint=signal_name,
@@ -139,22 +155,11 @@ def process_files(root_folder,df,meta,multidimensional=False):
                             signal=mx.ValueArray(values=signal, unit="a.u.",auxiliary = auxiliary),
                             axes=data_dict,
                             #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}
-                            conditions={ "grouped_by" : ', '.join(map(str, group_keys)) }
+                            conditions=_signal_meta #{ "grouped_by" : ', '.join(map(str, group_keys)) }
                     )
                     ea.nx_name = f'{sample} {subfolder}'
                     papp.effects.append(ea)
-                    #print(spe.meta)
-                    #ax = spe.plot(ax=ax,label="{} {}".format(row["Instrument/OP ID"],sample))
-                    #data_dict: Dict[str, mx.ValueArray] = {
-                    #        "Raman shift": mx.ValueArray(values=spe.x, unit="cm-1")
-                    #        }
-                    #papp.effects.append(mx.EffectArray(
-                    #    endpoint="Intensity",
-                    ##    endpointtype="RAW_DATA",
-                   #     signal=mx.ValueArray(values=spe.y, unit="a.u."),
-                   #     axes=data_dict,
-                    #    conditions={replicate : row[replicate]}
-                    #))    
+   
                 
             substance.study.append(papp)
         substances.append(substance)       
@@ -173,12 +178,27 @@ provider = "CHARISMA"
 prefix="CRMA"
 
 
-col_id = "Identifier (ID)"
-for id in result[col_id].unique():
-    #if id!="S2":
-    #    continue
-    _tmp = result.loc[result[col_id]==id]
-    _meta = df_meta.loc[df_meta[col_id]==id]
+def byinstrument():
+    col_id = "Identifier (ID)"
+    for id in result[col_id].unique():
+        #if id!="S2":
+        #    continue
+        _tmp = result.loc[result[col_id]==id]
+        _meta = df_meta.loc[df_meta[col_id]==id]
+        
+        not_meta_columns = _tmp.columns.difference(_meta.columns)
+        substances = process_files(root_folder,_tmp[not_meta_columns],_meta,multidimensional=multidimensional)
+        #print(substances.model_dump_json())
+        nxroot = nx.NXroot()
+        
+        substances.to_nexus(nxroot)
+        file = os.path.join(os.path.join(output_folder,"{}_spectra_{}.nxs".format("nD" if multidimensional else "1D",id)))
+        print(file)
+        nxroot.save(file, mode="w")
+
+try:
+    _tmp = result
+    _meta = df_meta
     
     not_meta_columns = _tmp.columns.difference(_meta.columns)
     substances = process_files(root_folder,_tmp[not_meta_columns],_meta,multidimensional=multidimensional)
@@ -186,6 +206,8 @@ for id in result[col_id].unique():
     nxroot = nx.NXroot()
     
     substances.to_nexus(nxroot)
-    file = os.path.join(os.path.join(output_folder,"{}_spectra_{}.nxs".format("nD" if multidimensional else "1D",id)))
+    file = os.path.join(os.path.join(output_folder,"{}_spectra_{}.nxs".format(investigation,"nD" if multidimensional else "1D")))
     print(file)
-    nxroot.save(file, mode="w")
+    nxroot.save(file, mode="w") 
+except Exception as err:
+    print(err)       

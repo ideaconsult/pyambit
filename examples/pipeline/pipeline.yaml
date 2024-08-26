@@ -3,9 +3,10 @@ tasks:
   - source: convert2nexus.py
     product:
       nb: products/convert2nexus.ipynb
+      nexus: "{{output_folder}}/spectra.nxs"
+      substances: "{{output_folder}}/spectra.pkl"
     params:
       root_folder: "{{root_folder}}"
       template_metadata: "{{template_metadata}}"
-      output_folder: "{{output_folder}}"
       multidimensional: "{{multidimensional}}"
 

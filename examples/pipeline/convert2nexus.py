@@ -3,7 +3,6 @@ upstream = []
 product = None
 root_folder = None
 template_metadata = None
-output_folder = None
 multidimensional = None
 # -
 
@@ -18,6 +17,7 @@ import datetime
 from pyambit.nexus_spectra import configure_papp
 import uuid
 import nexusformat.nexus.tree as nx
+import json, pickle
 
 def read_template(template_path):
     
@@ -152,7 +152,7 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         else:
                             _spemeta["REPLICATE"] = str(replicate_number)
                             #auxiliary["{}".format(row["basename"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
-                            auxiliary["Replicate {}".format(row["replicate"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
+                            auxiliary["Raman intensity ({})".format(row["replicate"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
                     #print(papp.uuid,auxiliary)                           
                     ea = mx.EffectArray(
                             endpoint="Raman intensity",
@@ -197,7 +197,7 @@ def byinstrument():
         nxroot = nx.NXroot()
         
         substances.to_nexus(nxroot)
-        file = os.path.join(os.path.join(output_folder,"{}_spectra_{}.nxs".format("nD" if multidimensional else "1D",id)))
+        file = os.path.join(product["nexus"])
         print(file)
         nxroot.save(file, mode="w")
 
@@ -207,12 +207,16 @@ try:
     
     not_meta_columns = _tmp.columns.difference(_meta.columns)
     substances = process_files(root_folder,_tmp[not_meta_columns],_meta,multidimensional=multidimensional)
-    #print(substances.model_dump_json())
+
+    with open(os.path.join(os.path.join(product["substances"])), 'wb') as file:
+        #json.dump(substances.model_dump(), file, indent=4)
+        pickle.dump(substances.model_dump(), file)
+
     nxroot = nx.NXroot()
     
     substances.to_nexus(nxroot)
-    file = os.path.join(os.path.join(output_folder,"{}_spectra_{}.nxs".format(investigation,"nD" if multidimensional else "1D")))
-    print(file)
+    file = os.path.join(os.path.join(product["nexus"]))
+
     nxroot.save(file, mode="w") 
 except Exception as err:
     print(err)       

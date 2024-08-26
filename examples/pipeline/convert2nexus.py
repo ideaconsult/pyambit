@@ -144,18 +144,23 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         if signal is None:
                             signal_name = "Raman intensity" if _name == "" else _name
                             signal = spe_y
+                            if _spemeta is None:
+                                _spemeta={}
                             _signal_meta = _spemeta
+                            _signal_meta["REPLICATE"] = str(replicate_number)
                             data_dict : Dict[str, mx.ValueArray] = { "Raman shift": mx.ValueArray(values=spe_x, unit="1/cm")}
                         else:
-                            auxiliary["{}".format(row["basename"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
+                            _spemeta["REPLICATE"] = str(replicate_number)
+                            #auxiliary["{}".format(row["basename"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
+                            auxiliary["{}".format(row["replicate"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
                     #print(papp.uuid,auxiliary)                           
                     ea = mx.EffectArray(
                             endpoint=signal_name,
                             endpointtype="RAW_DATA",
-                            signal=mx.ValueArray(values=signal, unit="a.u.",auxiliary = auxiliary),
+                            signal=mx.ValueArray(values=signal, unit="a.u.",auxiliary = auxiliary,conditions=_signal_meta),
                             axes=data_dict,
                             #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}
-                            conditions=_signal_meta #{ "grouped_by" : ', '.join(map(str, group_keys)) }
+                            conditions={ "grouped_by" : ', '.join(map(str, group_keys)) }
                     )
                     ea.nx_name = f'{sample} {subfolder}'
                     papp.effects.append(ea)

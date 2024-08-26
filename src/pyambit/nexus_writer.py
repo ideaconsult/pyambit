@@ -454,9 +454,10 @@ def effectarray2data(effect: EffectArray):
             effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
         ).strip(),
     )
+    if effect.signal.conditions is not None:
+        for key in effect.signal.conditions:
+            signal.attrs[key] = effect.signal.conditions[key]
 
-    # print(">>>",effect.endpoint,effect.signal.values)
-    # aux_signals = []
     nxdata = nx.tree.NXdata(
         signal=signal,
         axes=None if len(axes) == 0 else axes,

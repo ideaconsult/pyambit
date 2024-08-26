@@ -42,7 +42,6 @@ def process_files(root_folder,df,meta,multidimensional=False):
         df_sample = df.loc[df["Sample"]==sample] 
         grouped_path_instrument = df_sample.groupby(['Path', 'Instrument/OP ID'])
         for instrument_keys, df_subfolder in grouped_path_instrument:
-            print(instrument_keys)
             subfolder = instrument_keys[0].split("/")[0]
             instrument_id = instrument_keys[1]
             papp =  mx.ProtocolApplication(
@@ -142,7 +141,8 @@ def process_files(root_folder,df,meta,multidimensional=False):
 
                         replicate_number = row['replicate']
                         if signal is None:
-                            signal_name = "Raman intensity" if _name == "" else _name
+                            
+                            signal_endpointtype = "RAW_DATA" if _name == "" else _name
                             signal = spe_y
                             if _spemeta is None:
                                 _spemeta={}
@@ -152,11 +152,11 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         else:
                             _spemeta["REPLICATE"] = str(replicate_number)
                             #auxiliary["{}".format(row["basename"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
-                            auxiliary["{}".format(row["replicate"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
+                            auxiliary["Replicate {}".format(row["replicate"])] = mx.MetaValueArray(values=spe_y,unit="a.u",conditions=_spemeta)
                     #print(papp.uuid,auxiliary)                           
                     ea = mx.EffectArray(
-                            endpoint=signal_name,
-                            endpointtype="RAW_DATA",
+                            endpoint="Raman intensity",
+                            endpointtype=signal_endpointtype,
                             signal=mx.ValueArray(values=signal, unit="a.u.",auxiliary = auxiliary,conditions=_signal_meta),
                             axes=data_dict,
                             #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}

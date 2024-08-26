@@ -46,7 +46,8 @@ def get_unique_values(df):
             multi_value_dict[col] = ', '.join(map(str, unique_values.tolist()))
     return single_value_dict,multi_value_dict
 
-def process_files(root_folder,df,meta,multidimensional=False):
+def process_files(root_folder,df,meta_columns,multidimensional=False):
+    not_meta_columns = df.columns.difference(meta_columns)
     substances = []
     
     for sample in df["Sample"].unique():
@@ -54,10 +55,14 @@ def process_files(root_folder,df,meta,multidimensional=False):
         substance.i5uuid = "{}-{}".format(prefix, uuid.uuid5(uuid.NAMESPACE_OID, sample))     
         substance.study = []  
         df_sample = df.loc[df["Sample"]==sample] 
-        grouped_path_instrument = df_sample.groupby(['Path', 'Instrument/OP ID'])
+        grouped_path_instrument = df_sample.groupby(['Path', 'Instrument/OP ID','Wavelength, nm','Make','Model','Notes'])
         for instrument_keys, df_subfolder in grouped_path_instrument:
             subfolder = instrument_keys[0].split("/")[0]
             instrument_id = instrument_keys[1]
+            instrument_wl = instrument_keys[2]
+            instrument_make = instrument_keys[3]
+            instrument_model = instrument_keys[4]
+            data_provider = instrument_keys[5]
             papp =  mx.ProtocolApplication(
                 protocol=mx.Protocol(
                     topcategory="P-CHEM",
@@ -67,18 +72,21 @@ def process_files(root_folder,df,meta,multidimensional=False):
                 )
 
             _investigation = "{}.{}".format(subfolder,investigation)
+            citation =  mx.Citation(
+                    owner=data_provider, title=investigation, year=2023)
+            
             configure_papp(
-                papp,  instrument="{} {}".format(meta["Make"].values[0],meta["Model"].values[0]),  
-                wavelength=meta["Wavelength, nm"].values[0], 
-                provider=meta["Notes"].values[0],
+                papp,  instrument="{} {}".format(instrument_make,instrument_model),  
+                wavelength=str(instrument_wl), 
+                provider=citation.owner,
                 sample=sample,
                 sample_provider=provider,
                 investigation=_investigation,
-                citation =  mx.Citation(
-                    owner=meta["Notes"].values[0], title=investigation, year=2023),
+                citation =  citation,
                 prefix=prefix,
                 meta=None)   
-            papp.nx_name = "{} {} {}".format(subfolder,instrument_id, sample)                 
+            papp.nx_name = "{} {} {}".format(subfolder,instrument_id, sample)          
+            print(papp.parameters)       
             replicate="Measurement #"
             spectra = []
             for index, row in df_subfolder.iterrows():
@@ -107,10 +115,6 @@ def process_files(root_folder,df,meta,multidimensional=False):
                     
             grouped = df_spectra.groupby(['minx', 'maxx', 'bins','@signal','@axes'])
             for group_keys, group_df in grouped:
-                #print(row[replicate],sample,subfolder,row["Basename"],group_keys)
-                #print(f"Group keys (minx, maxx, bins): {group_keys}")
-                #print(group_df)
-                #print("\n")
                 try:
                     unique_replicates = sorted(group_df['replicate'].unique())
                     num_replicates = len(unique_replicates)
@@ -127,16 +131,16 @@ def process_files(root_folder,df,meta,multidimensional=False):
                         #print(type(array_2d),array_2d)
                         data_dict: Dict[str, mx.ValueArray] = {
                             "Replicate": mx.ValueArray(values=np.array(unique_replicates), unit=None),
-                            "Raman shift": mx.ValueArray(values=spe_x, unit="cm-1")
+                            group_keys[4]: mx.ValueArray(values=spe_x, unit="cm-1")
                         }   
 
                         _conditions_single["grouped_by"] = ', '.join(map(str, group_keys)) 
                         ea = mx.EffectArray(
                                 endpoint="Raman intensity",
                                 endpointtype=group_keys[3],
-                                signal=mx.ValueArray(values=array_2d, unit="a.u.",conditions = None if _conditions_multi == {} else _conditions_multi),
+                                signal=mx.ValueArray(values=array_2d, unit="a.u.",
+                                                    conditions = None if _conditions_multi == {} else _conditions_multi),
                                 axes=data_dict,
-                                #conditions={replicate : row[replicate]} # , "Original file" : meta["Original file"]}
                                 conditions= _conditions_single
                         )
                         ea.nx_name = f'{sample} {subfolder}'
@@ -236,8 +240,8 @@ try:
     _tmp = result
     _meta = df_meta
     
-    not_meta_columns = _tmp.columns.difference(_meta.columns)
-    substances = process_files(root_folder,_tmp[not_meta_columns],_meta,multidimensional=multidimensional)
+    
+    substances = process_files(root_folder,result,_meta.columns,multidimensional=multidimensional)
 
     with open(os.path.join(os.path.join(product["substances"])), 'wb') as file:
         #json.dump(substances.model_dump(), file, indent=4)

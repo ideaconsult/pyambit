@@ -449,7 +449,7 @@ def effectarray2data(effect: EffectArray):
 
     signal = nx.tree.NXfield(
         effect.signal.values,
-        name="value",
+        name=effect.endpoint,
         units=effect.signal.unit,
         long_name="{} {}".format(
             effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
@@ -488,7 +488,7 @@ def effectarray2data(effect: EffectArray):
                         _tmp,
                         name=_auxname,
                         units=_tmp_unit,
-                        long_name="{} ({}) {}".format(effect.endpoint, a,"" if _tmp_unit is None else _tmp_unit).strip()
+                        long_name="{} {}".format(a,"" if _tmp_unit is None else _tmp_unit).strip()
                     )
                 if _tmp_meta is not None:
                     for key in _tmp_meta:
@@ -555,7 +555,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                     entry[_group_key]["description"] = effect.endpointtype
             #    entry[_group_key] = _endpointtype_groups[_group_key]
 
-            entryid = "{}_{}".format(effect.endpoint, index)
+            entryid = "{}_{}".format(effect.endpoint if effect.nx_name is None else effect.nx_name.replace("/","_"), index)
             if entryid in entry[_group_key]:
                 del entry[_group_key][entryid]
                 print("replacing {}/{}".format(_group_key, entryid))

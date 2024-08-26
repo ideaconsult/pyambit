@@ -67,6 +67,7 @@ def process_files(root_folder,df,meta_columns,multidimensional=False):
                 protocol=mx.Protocol(
                     topcategory="P-CHEM",
                     category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
+                    guideline=["Raman spectroscopy"]
                 ),
                 effects=[],
                 )

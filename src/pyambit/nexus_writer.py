@@ -155,21 +155,20 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             experiment_documentation["date"] = papp.updated
             # category = nx.NXgroup()
             # experiment_documentation["category"] = category
-            experiment_documentation.attrs["topcategory"] = papp.protocol.topcategory
-            experiment_documentation.attrs["code"] = papp.protocol.category.code
-            experiment_documentation.attrs["term"] = papp.protocol.category.term
-            experiment_documentation.attrs["title"] = papp.protocol.category.title
-            experiment_documentation.attrs["endpoint"] = papp.protocol.endpoint
-            experiment_documentation.attrs["guideline"] = papp.protocol.guideline
+            experiment_documentation["protocol"] = nx.NXcollection()
+            experiment_documentation["protocol"].attrs["topcategory"] = papp.protocol.topcategory
+            experiment_documentation["protocol"].attrs["code"] = papp.protocol.category.code
+            experiment_documentation["protocol"].attrs["term"] = papp.protocol.category.term
+            experiment_documentation["protocol"].attrs["title"] = papp.protocol.category.title
+            experiment_documentation["protocol"].attrs["endpoint"] = papp.protocol.endpoint
+            experiment_documentation["protocol"].attrs["guideline"] = papp.protocol.guideline
             # definition is usually reference to the Nexus XML definition
             # ambit category codes and method serve similar role
-            nx_root["{}/definition".format(entry_id)] = (
-                "/AMBIT_DATAMODEL/{}/{}/{}".format(
+            nx_root["{}/definition".format(entry_id)] = "/AMBIT_DATAMODEL/{}/{}/{}".format(
                     papp.protocol.topcategory,
                     papp.protocol.category.code,
-                    papp.protocol.guideline,
-                )
-            )
+                    papp.protocol.guideline)
+                
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
@@ -253,7 +252,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                         elif _group == "environment":
                             _entry[_group] = nx.NXenvironment()                            
                         elif _group == "parameters":
-                            _entry[_group] = nx.NXcollection()                                                        
+                            _entry[_group] = nx.NXcollection()
+                        elif _group == "experiment_documentation":                            
+                            _entry[_group] = nx.NXnote()
                         else:
                             _entry[_group] = nx.NXgroup()
                     _entry = _entry[_group]

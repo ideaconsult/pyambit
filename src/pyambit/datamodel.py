@@ -251,7 +251,7 @@ class MetaValueArray(BaseValueArray):
             and self.conditions == other.conditions
         )
 
-class ValueArray(BaseValueArray):
+class ValueArray(MetaValueArray):
     auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
@@ -262,6 +262,7 @@ class ValueArray(BaseValueArray):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
+        conditions: Optional[Dict[str, str]] = None,
         auxiliary: Dict[str, Union[npt.NDArray, 'MetaValueArray']] = None,
     ):
         return cls(
@@ -269,6 +270,7 @@ class ValueArray(BaseValueArray):
             unit=unit,
             errorValue=errorValue,
             errQualifier=errQualifier,
+            conditions = conditions,
             auxiliary=auxiliary,
         )
 
@@ -299,6 +301,7 @@ class ValueArray(BaseValueArray):
             unit=base_instance.unit,
             errQualifier=base_instance.errQualifier,
             errorValue=base_instance.errorValue,
+            conditions=base_instance.conditions,
             auxiliary=auxiliary
         )
     def model_dump(self):
@@ -330,7 +333,7 @@ class ValueArray(BaseValueArray):
         def serialize(obj):
             if isinstance(obj, np.ndarray):
                 return obj.tolist()  # Convert NumPy arrays to lists
-            if isinstance(obj, BaseValueArray):
+            if isinstance(obj, MetaValueArray):
                 return obj.model_dump()  # Serialize BaseValueArray to a dictionary
             raise TypeError(f"Type {type(obj).__name__} not serializable")
 

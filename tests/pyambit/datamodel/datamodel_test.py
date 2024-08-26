@@ -58,8 +58,9 @@ def test_valuearray_roundtrip():
     """
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
-    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0)
+    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0,conditions={"test" : "test"})
 
+    assert val.conditions is not None
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
 

@@ -76,7 +76,7 @@ def process_files(root_folder,df,meta_columns,multidimensional=False):
                     owner=data_provider, title=investigation, year=2023)
             
             configure_papp(
-                papp,  instrument="{} {}".format(instrument_make,instrument_model),  
+                papp,  instrument=(instrument_make,instrument_model),  
                 wavelength=str(instrument_wl), 
                 provider=citation.owner,
                 sample=sample,
@@ -86,7 +86,7 @@ def process_files(root_folder,df,meta_columns,multidimensional=False):
                 prefix=prefix,
                 meta=None)   
             papp.nx_name = "{} {} {}".format(subfolder,instrument_id, sample)          
-            print(papp.parameters)       
+  
             replicate="Measurement #"
             spectra = []
             for index, row in df_subfolder.iterrows():

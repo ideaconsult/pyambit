@@ -7,4 +7,5 @@ tasks:
       root_folder: "{{root_folder}}"
       template_metadata: "{{template_metadata}}"
       output_folder: "{{output_folder}}"
+      multidimensional: "{{multidimensional}}"
 

@@ -25,6 +25,36 @@ from pyambit.datamodel import (
     ValueArray
 )
 
+def param_lookup(prm,value):
+    target = "environment"
+    if "instrument" in prm.lower():
+        target = "instrument"
+    if "technique" in prm.lower():
+        target = "instrument"
+    if "wavelength" in prm.lower():
+        target = "instrument/beam_incident"
+    elif "sample" in prm.lower():
+        target = "sample"
+    elif "material" in prm.lower():
+        target = "sample"
+    elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
+        target = "experiment_documentation"
+    elif "E.SOP_REFERENCE" == prm:
+        target = "experiment_documentation"
+    elif "OPERATOR" == prm:
+        target = "experiment_documentation"
+    elif prm.startswith("T."):
+        target = "instrument"
+    elif "EXPERIMENT_END_DATE" == prm:
+        target = "end_time"
+    elif "EXPERIMENT_START_DATE" == prm:
+        target = "start_time"
+    elif "__input_file" == prm:
+        target = "experiment_documentation"
+    else:
+        target="parameters"
+
+    return "{}/{}".format(target,prm)
 
 @add_ambitmodel_method(ProtocolApplication)
 def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=False):
@@ -208,61 +238,39 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             nx_root[substance_id].attrs["uuid"] = papp.owner.substance.uuid
         nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(substance_id)
 
-    # parameters
-    if not ("{}/instrument".format(entry_id) in nx_root):
-        nx_root["{}/instrument".format(entry_id)] = nx.NXinstrument()
-    instrument = nx_root["{}/instrument".format(entry_id)]
-
-    if not ("{}/parameters".format(entry_id) in nx_root):
-        nx_root["{}/parameters".format(entry_id)] = nx.NXcollection()
-    parameters = nx_root["{}/parameters".format(entry_id)]
-
-    if not ("{}/environment".format(entry_id) in nx_root):
-        nx_root["{}/environment".format(entry_id)] = nx.NXenvironment()
-    environment = nx_root["{}/environment".format(entry_id)]
-
-    if not (papp.parameters is None):
-        for prm in papp.parameters:
+    if papp.parameters is not None:
+        for prm_path in papp.parameters:
             try:
-                value = papp.parameters[prm]
-                # Invalid path if the key contains /
-                # prm = prm.replace("/","_")
-                target = environment
-                if "instrument" in prm.lower():
-                    target = instrument
-                if "technique" in prm.lower():
-                    target = instrument
-                if "wavelength" in prm.lower():
-                    target = instrument
-                elif "sample" in prm.lower():
-                    target = sample
-                elif "material" in prm.lower():
-                    target = sample
-                elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
-                    target = nx_root[entry_id]["experiment_documentation"]
-                    # continue
-                elif "E.SOP_REFERENCE" == prm:
-                    # target = instrument
-                    target = nx_root[entry_id]["experiment_documentation"]
-                elif "OPERATOR" == prm:
-                    # target = instrument
-                    target = nx_root[entry_id]["experiment_documentation"]
-                elif prm.startswith("T."):
-                    target = instrument
-
-                if "EXPERIMENT_END_DATE" == prm:
-                    nx_root[entry_id]["end_time"] = value
-                elif "EXPERIMENT_START_DATE" == prm:
-                    nx_root[entry_id]["start_time"] = value
-                elif "__input_file" == prm:
-                    nx_root[entry_id]["experiment_documentation"][prm] = value
-                elif isinstance(value, str):
-                    target[prm] = nx.NXfield(str(value))
+                value = papp.parameters[prm_path]
+                prms = prm_path.split("/")
+                if len(prms)==0:
+                    prms = param_lookup(prm_path,value)
+                _entry = nx_root[entry_id]
+                for _group in prms[:-1]:
+                    if _group not in _entry:
+                        if _group == "instrument":
+                            _entry[_group] = nx.NXinstrument()
+                        elif _group == "environment":
+                            _entry[_group] = nx.NXenvironment()                            
+                        elif _group == "parameters":
+                            _entry[_group] = nx.NXcollection()                                                        
+                        else:
+                            _entry[_group] = nx.NXgroup()
+                    _entry = _entry[_group]
+                target = _entry
+                prm = prms[-1]
+                
+                if isinstance(value, str):
+                    target[prm] = nx.NXfield(value)
+                elif isinstance(value, int):
+                    target[prm] = nx.NXfield(value)    
+                elif isinstance(value, float):
+                    target[prm] = nx.NXfield(value)                                        
                 elif isinstance(value, Value):
-                    # tbd ranges?
+                        # tbd ranges?
                     target[prm] = nx.NXfield(value.loValue, unit=value.unit)
                 else:
-                    target = parameters
+                    target[prm] = nx.NXfield(str(value))
             except Exception as err:
                 raise Exception(
                     "ProtocolApplication: parameters parsing error {} {}".format(

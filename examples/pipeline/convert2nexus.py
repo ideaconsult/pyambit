@@ -11,14 +11,13 @@ import os.path
 import pandas as pd
 import pyambit.datamodel as mx
 import numpy as np 
-from typing import Dict, List, Union
-import matplotlib.pyplot as plt
-import datetime
+from typing import Dict
 from pyambit.nexus_spectra import configure_papp
 import uuid
 import nexusformat.nexus.tree as nx
 import json, pickle
 import traceback
+from numpy.typing import NDArray
 
 def read_template(template_path):
     
@@ -120,7 +119,7 @@ def process_files(root_folder,df,meta_columns,multidimensional=False):
                     unique_replicates = sorted(group_df['replicate'].unique())
                     num_replicates = len(unique_replicates)
                     if multidimensional:                
-                        array_2d = np.empty((num_replicates,group_keys[2]))
+                        array_2d: NDArray[np.float64] = np.empty((num_replicates, group_keys[2]))
                         for i, (index, row) in enumerate(group_df.iterrows()):
                             spe_y = row['spe'].y
                             spe_x = row['spe'].x
@@ -219,24 +218,6 @@ provider = "CHARISMA"
 prefix="CRMA"
 
 
-def byinstrument():
-    col_id = "Identifier (ID)"
-    for id in result[col_id].unique():
-        #if id!="S2":
-        #    continue
-        _tmp = result.loc[result[col_id]==id]
-        _meta = df_meta.loc[df_meta[col_id]==id]
-        
-        not_meta_columns = _tmp.columns.difference(_meta.columns)
-        substances = process_files(root_folder,_tmp[not_meta_columns],_meta,multidimensional=multidimensional)
-        #print(substances.model_dump_json())
-        nxroot = nx.NXroot()
-        
-        substances.to_nexus(nxroot)
-        file = os.path.join(product["nexus"])
-        print(file)
-        nxroot.save(file, mode="w")
-
 try:
     _tmp = result
     _meta = df_meta
@@ -244,9 +225,15 @@ try:
     
     substances = process_files(root_folder,result,_meta.columns,multidimensional=multidimensional)
 
-    with open(os.path.join(os.path.join(product["substances"])), 'wb') as file:
-        #json.dump(substances.model_dump(), file, indent=4)
-        pickle.dump(substances.model_dump(), file)
+    #for substance in substances.substance:
+    #    for study in substance.study:
+    #        for effects in study.effects:
+    #            effects.model_dump_json()
+    #        study.effects = []
+    #        print(study.model_dump_json())
+    #with open(os.path.join(os.path.join(product["substances"])), 'w') as file:
+        #print(substances.model_dump_json())
+        #pickle.dump(substances.model_dump(), file)
 
     nxroot = nx.NXroot()
     

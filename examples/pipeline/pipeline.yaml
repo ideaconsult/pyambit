@@ -3,8 +3,8 @@ tasks:
   - source: convert2nexus.py
     product:
       nb: products/convert2nexus.ipynb
-      nexus: "{{output_folder}}/{{spectra_output}}.nxs"
-      substances: "{{output_folder}}/{{spectra_output}}.json"
+      nexus: "{{output_folder}}"
+      #substances: "{{output_folder}}/{{spectra_output}}.json"
     params:
       root_folder: "{{root_folder}}"
       template_metadata: "{{template_metadata}}"

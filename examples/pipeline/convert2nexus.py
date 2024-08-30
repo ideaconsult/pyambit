@@ -24,6 +24,7 @@ def read_template(template_path):
     df = pd.read_excel(template_path, sheet_name='Files')
     df['Path'] = df['Filename'].apply(lambda x: os.path.dirname(x))
     df['Basename'] = df['Filename'].apply(lambda x: os.path.basename(x))
+    df['Folder'] = df['Filename'].apply(lambda x: x.strip('/').split('/')[0])
     # zero values for laser power are error / empty values
     df['Laser power, mW'] = df['Laser power, mW'].replace(0, np.nan)
     df.dropna(axis=1,how='all',inplace=True)
@@ -219,28 +220,32 @@ prefix="CRMA"
 
 
 try:
-    _tmp = result
     _meta = df_meta
     
-    
-    substances = process_files(root_folder,result,_meta.columns,multidimensional=multidimensional)
+    for folder in result["Path"].unique():
+        _tmp = result.loc[result["Path"]==folder]
+        head,tail = os.path.split(folder)
+        if head: 
+           os.makedirs(os.path.join(product["nexus"],head), exist_ok=True) 
 
-    #for substance in substances.substance:
-    #    for study in substance.study:
-    #        for effects in study.effects:
-    #            effects.model_dump_json()
-    #        study.effects = []
-    #        print(study.model_dump_json())
-    #with open(os.path.join(os.path.join(product["substances"])), 'w') as file:
-        #print(substances.model_dump_json())
-        #pickle.dump(substances.model_dump(), file)
+        substances = process_files(root_folder,_tmp,_meta.columns,multidimensional=multidimensional)
 
-    nxroot = nx.NXroot()
-    
-    substances.to_nexus(nxroot)
-    file = os.path.join(os.path.join(product["nexus"]))
+        #for substance in substances.substance:
+        #    for study in substance.study:
+        #        for effects in study.effects:
+        #            effects.model_dump_json()
+        #        study.effects = []
+        #        print(study.model_dump_json())
+        #with open(os.path.join(os.path.join(product["substances"])), 'w') as file:
+            #print(substances.model_dump_json())
+            #pickle.dump(substances.model_dump(), file)
 
-    nxroot.save(file, mode="w") 
+        nxroot = nx.NXroot()
+        
+        substances.to_nexus(nxroot)
+        file = os.path.join(os.path.join(product["nexus"],"{}.nxs".format(folder)))
+
+        nxroot.save(file, mode="w") 
 except Exception as err:
     traceback.print_exc()
     print(err)       

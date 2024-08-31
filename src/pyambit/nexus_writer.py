@@ -191,14 +191,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     nxmap.attrs["PROTOCOL_APPLICATION_UUID"] = "{}/entry_identifier_uuid".format(
         entry_id
     )
-    #tbd make these links
-    nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
-    nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
-    nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
-    nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
-    nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
-    nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
-    nxmap.attrs["EffectRecords"] = "datasets"
+
+    # no need to repeat these, rather make a xml definition and refer to it
+    #nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
+    #nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
+    #nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
+    #nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
+    #nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
+    #nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
+    #nxmap.attrs["EffectRecords"] = "datasets"
 
     try:
         citation_id = "{}/reference".format(entry_id)
@@ -279,9 +280,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     )
                 ) from err
 
-    if not (papp.owner is None):
+    if papp.owner is not None:
         try:
-            sample["uuid"] = papp.owner.substance.uuid
+            sample.attrs["uuid"] = papp.owner.substance.uuid
             sample["provider"] = papp.owner.company.name
         except Exception as err:
             raise Exception(

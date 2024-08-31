@@ -28,7 +28,7 @@ import nexusformat.nexus as nx
 import numpy as np 
 import ramanchada2 as rc2
 from pathlib import Path
-
+import json
 
 
 #    _substances = Substances(substance=[substances.substance[0]])
@@ -50,12 +50,15 @@ def main():
             elif item.name.endswith(".nxs"):
                 absolute_path = item.resolve() 
                 nexus_file = nxload(absolute_path)
-
                 parser.parse(nexus_file,relative_path.as_posix())
-                substances : Substances = parser.get_substances()
-                   #     papp : ProtocolApplication = nexus_parser.from_nexus(relative_path.as_posix(),entry,index_only=True)
-                print(substances.model_dump_json(exclude_none=True,indent=4))
-                break
+            break
+        substances : Substances = parser.get_substances()    
+        solr_index = substances.to_solr_index(prefix="CRMA")
+        with open(product["solr_index"], 'w') as file:
+            json.dump(solr_index, file, indent=4)           
+        ambit_json = substances.model_dump_json(exclude_none=True,indent=4)
+        with open(product["ambit_json"], 'w') as file:
+            file.write(ambit_json) 
     except Exception as err:
         print(err)
 

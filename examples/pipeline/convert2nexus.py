@@ -19,6 +19,10 @@ import json, pickle
 import traceback
 from numpy.typing import NDArray
 
+from pyambit.solr_writer import to_solr_index
+
+
+
 def read_template(template_path):
     
     df = pd.read_excel(template_path, sheet_name='Files')
@@ -74,7 +78,7 @@ def process_files(root_folder,df,meta_columns,multidimensional=False):
 
             _investigation = "{}.{}".format(subfolder,investigation)
             citation =  mx.Citation(
-                    owner=data_provider, title=investigation, year=2023)
+                    owner=data_provider, title="10.5281/zenodo.13387413", year=2024)
             
             configure_papp(
                 papp,  instrument=(instrument_make,instrument_model),  
@@ -230,21 +234,12 @@ try:
 
         substances = process_files(root_folder,_tmp,_meta.columns,multidimensional=multidimensional)
 
-        #for substance in substances.substance:
-        #    for study in substance.study:
-        #        for effects in study.effects:
-        #            effects.model_dump_json()
-        #        study.effects = []
-        #        print(study.model_dump_json())
-        #with open(os.path.join(os.path.join(product["substances"])), 'w') as file:
-            #print(substances.model_dump_json())
-            #pickle.dump(substances.model_dump(), file)
-
         nxroot = nx.NXroot()
         
         substances.to_nexus(nxroot)
         file = os.path.join(os.path.join(product["nexus"],"{}.nxs".format(folder)))
-
+        nxroot.attrs["pyambit"] = "0.0.1"
+        nxroot.attrs["file_name"] = os.path.basename(file)
         nxroot.save(file, mode="w") 
 except Exception as err:
     traceback.print_exc()

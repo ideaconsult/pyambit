@@ -13,4 +13,6 @@ tasks:
   - source: substance_index.py
     product:
       nb: products/substance_index.ipynb
+      solr_index: "{{solr_index}}"
+      ambit_json: "{{ambit_json}}"
       

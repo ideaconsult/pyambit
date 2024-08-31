@@ -2,18 +2,17 @@
 from pyambit.ambit_deco import add_ambitmodel_method
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from pyambit.ambit_deco import add_ambitmodel_method
+
+
 from pyambit.datamodel import (
-    Composition,
     EffectRecord,
     EffectArray,
     ProtocolApplication,
-    Study,
     SubstanceRecord,
     Substances,
     Value,
-    MetaValueArray,
-    ValueArray,
-    
+   
 )
 
 def prm2solr(params : Dict, key : str, value : Union[str, Value, None]):
@@ -115,7 +114,7 @@ def to_solr_index(substance: SubstanceRecord,prefix="TEST"):
     _studies = []
     _solr["SUMMARY.RESULTS_hss"] = []
     for _papp in substance.study:
-        _study_solr = _papp.to_solr_index()
+        _study_solr = _papp.to_solr_index(prefix)
 
         for _study in _study_solr:
             _study["s_uuid_s"] = substance.i5uuid

@@ -1,8 +1,6 @@
 
-from pyambit.ambit_deco import add_ambitmodel_method
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-from pyambit.ambit_deco import add_ambitmodel_method
+import json
 
 
 from pyambit.datamodel import (
@@ -154,3 +152,8 @@ class Ambit2Solr:
     
     def to_json(self,substances: Substances):
         return self.substances2solr(substances)   
+    
+    def write(self, substances, file_path):
+        _json = self.to_json(substances)
+        with open(file_path, 'w') as file:
+            json.dump(_json, file)

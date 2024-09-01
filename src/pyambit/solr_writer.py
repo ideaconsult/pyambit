@@ -7,6 +7,7 @@ from pyambit.ambit_deco import add_ambitmodel_method
 
 from pyambit.datamodel import (
     EffectRecord,
+    EffectResult,
     EffectArray,
     ProtocolApplication,
     SubstanceRecord,
@@ -28,6 +29,21 @@ def prm2solr(params : Dict, key : str, value : Union[str, Value, None]):
             if value.unit is not None:
                 params["{}_UNIT_s".format(key)] = value.unit       
 
+def effectresult2solr(effect_result: EffectResult, solr_index = None ):
+    if solr_index is None:
+        solr_index = {}
+    if effect_result.loValue is not None: 
+        solr_index["loValue_d"] =  effect_result.loValue
+    if effect_result.loQualifier is not None: 
+        solr_index["loQualifier_s"] =  effect_result.loQualifier
+    if effect_result.upQualifier is not None: 
+        solr_index["upQualifier_s"] =  effect_result.upQualifier                   
+    if effect_result.upValue is not None: 
+        solr_index["upValue_d"] =  effect_result.upValue
+    if effect_result.unit is not None: 
+        solr_index["unit_s"] =  effect_result.unit
+    if effect_result.textValue is not None:                    
+        solr_index["textValue_s"] =  effect_result.textValue
 
 @add_ambitmodel_method(ProtocolApplication)
 def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
@@ -58,20 +74,11 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
         if isinstance(effect,EffectRecord):
             #conditions
             if effect.result is not None:  #EffectResult
-                if effect.result.loValue is not None: 
-                   _solr["loValue_d"] =  effect.result.loValue
-                if effect.result.loQualifier is not None: 
-                   _solr["loQualifier_s"] =  effect.result.loQualifier
-                if effect.result.upQualifier is not None: 
-                   _solr["upQualifier_s"] =  effect.result.upQualifier                   
-                if effect.result.upValue is not None: 
-                   _solr["upValue_d"] =  effect.result.upValue
-                if effect.result.unit is not None: 
-                   _solr["unit_s"] =  effect.result.unit
-                if effect.result.textValue is not None:                    
-                   _solr["textValue_s"] =  effect.result.textValue
+                effectresult2solr(effect.result,_solr)
         elif isinstance(effect,EffectArray):
-            pass
+            if effect.result is not None:  #EffectResult
+                effectresult2solr(effect.result,_solr)
+
             # tbd - this is new in pyambit, we did not have array results implementation
         _conditions = {"type_s" : "conditions"}
         _conditions["topcategory_s"] = papp.protocol.topcategory
@@ -94,8 +101,7 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
             _params["E.method_s"] = papp.parameters["E.method_s"]
         _params["type_s"] = "params"
         _solr["_childDocuments_"] = [_params]
-        #_solr["spectrum_c1024"] = self.spectrum_embedding[0]
-        #_solr["spectrum_p1024"] = self.spectrum_embedding[1]
+    
     papp_solr.append(_solr)
     return papp_solr
 

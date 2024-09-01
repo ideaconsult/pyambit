@@ -122,7 +122,7 @@ def to_solr_index(substance: SubstanceRecord,prefix="TEST"):
             _study["publicname_s"] = substance.publicname
             _study["substanceType_s"] = substance.substanceType
             _study["owner_name_s"] = substance.ownerName
-        _studies.append(_study_solr)
+        _studies.extend(_study_solr)
         _summary = "{}.{}".format(
               _papp.protocol.topcategory,"UNKNOWN" if _papp.protocol.category is None else _papp.protocol.category.code)
         #if not (_summary in _solr["SUMMARY.RESULTS_hss"]):

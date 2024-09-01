@@ -53,11 +53,10 @@ def main():
                 parser.parse(nexus_file,relative_path.as_posix())
             #break
         substances : Substances = parser.get_substances()   
-        writer: Ambit2Solr  = Ambit2Solr(prefix= "CRMA") 
-        solr_index = writer.to_json(substances)
 
-        with open(product["solr_index"], 'w') as file:
-            json.dump(solr_index, file, indent=4)           
+        with Ambit2Solr(prefix="CRMA") as writer:
+            writer.write(substances, product["solr_index"])
+      
         ambit_json = substances.model_dump_json(exclude_none=True,indent=4)
         with open(product["ambit_json"], 'w') as file:
             file.write(ambit_json) 

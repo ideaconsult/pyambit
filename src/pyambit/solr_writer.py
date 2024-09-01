@@ -19,6 +19,14 @@ class Ambit2Solr:
 
     def __init__(self,prefix : str):
         self.prefix = prefix
+    
+    def __enter__(self):
+        self._solr = []
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Any cleanup code, if needed
+        pass
 
     def prm2solr(self,params : Dict, key : str, value : Union[str, Value, None]):
             if isinstance(value,str):
@@ -49,6 +57,21 @@ class Ambit2Solr:
         if effect_result.textValue is not None:                    
             solr_index["textValue_s"] =  effect_result.textValue
 
+    def effectrecord2solr(self,effect: EffectRecord, solr_index = None ):
+        if solr_index is None:
+            solr_index = {}            
+        if isinstance(effect,EffectArray):
+            # tbd - this is new in pyambit, we did not have array results implementation            
+            if effect.result is not None:  #EffectResult
+                self.effectresult2solr(effect.result,solr_index)
+            # e.g. vector search                
+            if effect.endpointtype == "embeddings":
+                solr_index[effect.endpoint] = effect.signal.values
+        elif isinstance(effect,EffectRecord):
+            #conditions
+            if effect.result is not None:  #EffectResult
+                self.effectresult2solr(effect.result,solr_index)        
+
     def entry2solr(self,papp: ProtocolApplication):
         papp_solr = []
         for _id, effect in enumerate(papp.effects, start=1):
@@ -74,17 +97,8 @@ class Ambit2Solr:
             _solr["updated_s"] = papp.updated
             if "E.method_s" in papp.parameters:
                 _solr["E.method_s"] = papp.parameters["E.method_s"]
-            if isinstance(effect,EffectRecord):
-                #conditions
-                if effect.result is not None:  #EffectResult
-                    self.effectresult2solr(effect.result,_solr)
-            elif isinstance(effect,EffectArray):
-                if effect.result is not None:  #EffectResult
-                    self.effectresult2solr(effect.result,_solr)
-                if effect.endpointtype == "embeddings":
-                    _solr[effect.endpoint] = effect.signal.values
+            self.effectrecord2solr(effect,_solr)
 
-                # tbd - this is new in pyambit, we did not have array results implementation
             _conditions = {"type_s" : "conditions"}
             _conditions["topcategory_s"] = papp.protocol.topcategory
             _conditions["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code        
@@ -144,11 +158,12 @@ class Ambit2Solr:
         return _solr
 
     
-    def substances2solr(self,substances: Substances):
-        _solr = []
+    def substances2solr(self,substances: Substances, buffer = None):
+        if buffer is None:
+            buffer = []
         for substance in substances.substance:        
-            _solr.append(self.substancerecord2solr(substance))
-        return _solr
+            buffer.append(self.substancerecord2solr(substance))
+        return buffer
     
     def to_json(self,substances: Substances):
         return self.substances2solr(substances)   

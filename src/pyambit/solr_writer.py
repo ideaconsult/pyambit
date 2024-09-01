@@ -78,6 +78,8 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
         elif isinstance(effect,EffectArray):
             if effect.result is not None:  #EffectResult
                 effectresult2solr(effect.result,_solr)
+            if effect.endpointtype == "embeddings":
+                _solr[effect.endpoint] = effect.signal.values
 
             # tbd - this is new in pyambit, we did not have array results implementation
         _conditions = {"type_s" : "conditions"}

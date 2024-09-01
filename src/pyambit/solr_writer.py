@@ -80,7 +80,7 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
         _conditions["id"] =  "{}/cn".format(_solr["id"])        
         for prm in effect.conditions:
             prm2solr(_conditions,prm,effect.conditions[prm])
-        solr["_childDocuments_"] = [_conditions]
+        _solr["_childDocuments_"] = [_conditions]
 
     _params = {}
     for prm in papp.parameters:

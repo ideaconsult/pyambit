@@ -170,20 +170,26 @@ class Nexus2Ambit():
             for name_data, data in enddpointtype_group.items():
                 if isinstance(data,nx.NXdata):
                     if self.index_only:
-                        papp.effects.append(EffectRecord(
-                                endpoint=data.attrs["signal"],
-                                endpointtype=endpointtype_name,
-                                result=EffectResult(
-                                    textValue="{}/{}#{}".format(self.domain,relative_path,data.nxpath)
-                                ),
-                                conditions={
-                                },
-                                idresult=None,
-                                endpointGroup=None,
-                                endpointSynonyms=[],
-                                sampleID=None,
-                            ) )    
+                        papp.effects.append(self.parse_effect(endpointtype_name,data,relative_path))    
                     else:
                         raise NotImplementedError("Not implemented")           
 
         return papp
+    
+    def parse_effect(self, endpointtype_name, data : nx.NXentry, relative_path : str) -> EffectRecord:
+        if self.index_only:
+            return EffectRecord(
+                    endpoint=data.attrs["signal"],
+                    endpointtype=endpointtype_name,
+                        result=EffectResult(
+                            textValue="{}/{}#{}".format(self.domain,relative_path,data.nxpath)
+                        ),
+                        conditions={
+                                   },
+                        idresult=None,
+                        endpointGroup=None,
+                        endpointSynonyms=[],
+                        sampleID=None
+            )
+        else:
+            raise NotImplementedError("Not implemented")            

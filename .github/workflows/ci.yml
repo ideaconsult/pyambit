@@ -84,7 +84,7 @@ jobs:
         run: poetry run pytest --cov
 
       - name: Store the coverage report
-        uses: actions/upload-artifact@v4.3.6
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: coverage-${{ matrix.python-version }}
           path: .coverage.${{ matrix.python-version }}
@@ -119,7 +119,7 @@ jobs:
 
       - name: Store the pull request coverage comment for later posting
         if: steps.coverage_processing.outputs.COMMENT_FILE_WRITTEN == 'true'
-        uses: actions/upload-artifact@v4.3.6
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: python-coverage-comment-action
           path: python-coverage-comment-action.txt

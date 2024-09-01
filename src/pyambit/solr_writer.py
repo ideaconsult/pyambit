@@ -66,7 +66,7 @@ class Ambit2Solr:
                 self.effectresult2solr(effect.result,solr_index)
             # e.g. vector search                
             if effect.endpointtype == "embeddings":
-                solr_index[effect.endpoint] = effect.signal.values
+                solr_index[effect.endpoint] = effect.signal.values.tolist()
         elif isinstance(effect,EffectRecord):
             #conditions
             if effect.result is not None:  #EffectResult

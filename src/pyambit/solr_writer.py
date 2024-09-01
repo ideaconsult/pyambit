@@ -80,7 +80,7 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
         _conditions["id"] =  "{}/cn".format(_solr["id"])        
         for prm in effect.conditions:
             prm2solr(_conditions,prm,effect.conditions[prm])
-        _solr["_childDocuments_"] = [_conditions]
+        solr["_childDocuments_"] = [_conditions]
 
     _params = {}
     for prm in papp.parameters:
@@ -96,7 +96,7 @@ def to_solr_index(papp: ProtocolApplication,prefix="TEST"):
         _solr["_childDocuments_"] = [_params]
         #_solr["spectrum_c1024"] = self.spectrum_embedding[0]
         #_solr["spectrum_p1024"] = self.spectrum_embedding[1]
-        papp_solr.append(_solr)
+    papp_solr.append(_solr)
     return papp_solr
 
 @add_ambitmodel_method(SubstanceRecord)
@@ -115,7 +115,6 @@ def to_solr_index(substance: SubstanceRecord,prefix="TEST"):
     _solr["SUMMARY.RESULTS_hss"] = []
     for _papp in substance.study:
         _study_solr = _papp.to_solr_index(prefix)
-
         for _study in _study_solr:
             _study["s_uuid_s"] = substance.i5uuid
             _study["type_s"] = "study"

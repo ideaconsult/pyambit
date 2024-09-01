@@ -62,8 +62,8 @@ def configure_papp(
         "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength,unit="nm"),
         "instrument/device_information/vendor": instrument[0],
         "instrument/device_information/model": instrument[1],
-        "definition":"NXRaman",
-        "program_name": "pyambit"
+        "definition":"NXRaman"
+        
     }
 
     papp.uuid = "{}-{}".format(

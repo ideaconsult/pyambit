@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pyambit import solr_writer
+from pyambit.solr_writer import Ambit2Solr
 from pyambit.datamodel import Study, Substances
 
 
@@ -30,8 +30,10 @@ def substances():
 
 
 def test_substances(substances):
+
     _substances = Substances(substance=[substances.substance[0]])
-    _json = _substances.to_solr_index()
+    writer: Ambit2Solr  = Ambit2Solr(prefix= "TEST")
+    _json = writer.to_json(_substances)
     _file = os.path.join(tempfile.gettempdir(), "substances.json")
     print(_file)
     with open(_file, 'w') as file:

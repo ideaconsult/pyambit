@@ -21,7 +21,7 @@ from pyambit.datamodel import (
     EndpointCategory,
     SampleLink
 )
-from pyambit.solr_writer import to_solr_index
+from pyambit.solr_writer import Ambit2Solr
 
 from nexusformat.nexus import nxload
 import nexusformat.nexus as nx
@@ -51,9 +51,11 @@ def main():
                 absolute_path = item.resolve() 
                 nexus_file = nxload(absolute_path)
                 parser.parse(nexus_file,relative_path.as_posix())
-            break
-        substances : Substances = parser.get_substances()    
-        solr_index = substances.to_solr_index(prefix="CRMA")
+            #break
+        substances : Substances = parser.get_substances()   
+        writer: Ambit2Solr  = Ambit2Solr(prefix= "CRMA") 
+        solr_index = writer.to_json(substances)
+
         with open(product["solr_index"], 'w') as file:
             json.dump(solr_index, file, indent=4)           
         ambit_json = substances.model_dump_json(exclude_none=True,indent=4)

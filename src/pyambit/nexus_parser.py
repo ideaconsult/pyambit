@@ -25,7 +25,7 @@ from pyambit.datamodel import (
 )
 import traceback
 
-class Nexus2Ambit():
+class Nexus2Ambit:
 
     def __init__(self,domain : str, index_only : True):
         self.substances : Dict[str, SubstanceRecord] = {}

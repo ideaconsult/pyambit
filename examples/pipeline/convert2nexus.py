@@ -19,9 +19,6 @@ import json, pickle
 import traceback
 from numpy.typing import NDArray
 
-from pyambit.solr_writer import to_solr_index
-
-
 
 def read_template(template_path):
     

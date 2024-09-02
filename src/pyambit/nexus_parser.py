@@ -32,6 +32,14 @@ class Nexus2Ambit:
         self.domain = domain
         self.index_only = index_only
 
+    def __enter__(self):
+        self.clear()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Any cleanup code, if needed
+        pass
+
     def clear(self):
         self.substances = {}
 	
@@ -130,7 +138,6 @@ class Nexus2Ambit:
                 sample_uuid=nxentry["sample/substance"].attrs["uuid"],
                 sample_provider=nxentry["sample/provider"].nxdata
             )
-            print(_owner)
         except Exception as err:
             raise ValueError(err)
 

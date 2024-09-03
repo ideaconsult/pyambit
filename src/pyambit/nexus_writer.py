@@ -449,7 +449,9 @@ def effectarray2data(effect: EffectArray):
             nx.tree.NXfield(
                 effect.axes[key].values,
                 name=key.replace("/", "_"),
-                long_name="{} {}".format(key,"" if effect.axes[key].unit is None else effect.axes[key].unit).strip(),
+                long_name="{} {}".format(
+                    key, "" if effect.axes[key].unit is None else effect.axes[key].unit
+                ).strip(),
                 errors=effect.axes[key].errorValue,
                 units=effect.axes[key].unit,
             )
@@ -459,7 +461,9 @@ def effectarray2data(effect: EffectArray):
         effect.signal.values,
         name=effect.endpoint,
         units=effect.signal.unit,
-        long_name="{} {}".format(effect.endpoint,"" if effect.signal.unit is None else effect.signal.unit).strip()
+        long_name="{} {}".format(
+            effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
+        ).strip(),
     )
     if effect.signal.conditions is not None:
         for key in effect.signal.conditions:
@@ -494,7 +498,11 @@ def effectarray2data(effect: EffectArray):
                         _tmp,
                         name=_auxname,
                         units=_tmp_unit,
-                        long_name="{} {}".format(a,"" if _tmp_unit is None else _tmp_unit).strip()
+                        long_name="{} ({}) {}".format(
+                            effect.endpoint,
+                            a,
+                            "" if effect.signal.unit is None else effect.signal.unit,
+                        ).strip(),
                     )
                 if _tmp_meta is not None:
                     for key in _tmp_meta:

@@ -6,24 +6,9 @@ product = None
 
 from pyambit.nexus_parser import Nexus2Ambit
 from pyambit.datamodel import (
-    Composition,
-    EffectArray,
-    effects2df,
-    Protocol,
-    ProtocolApplication,
-    Citation,
-    Study,
-    SubstanceRecord,
     Substances,
-    Value,
-    MetaValueArray,
-    ValueArray,
-    EndpointCategory,
-    SampleLink
 )
-
 from pyambit.solr_writer import Ambit2Solr
-
 from nexusformat.nexus import nxload
 from pathlib import Path
 

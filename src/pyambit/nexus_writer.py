@@ -86,9 +86,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     try:
         _categories_collection = ""
         if hierarchy:
-            if not papp.protocol.topcategory in nx_root:
+            if papp.protocol.topcategory not in nx_root:
                 nx_root[papp.protocol.topcategory] = nx.NXgroup()
-            if not papp.protocol.category.code in nx_root[papp.protocol.topcategory]:
+            if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
                 nx_root[papp.protocol.topcategory][
                     papp.protocol.category.code
                 ] = nx.NXgroup()
@@ -107,7 +107,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             entry_id = "{}/{}_{}".format(_categories_collection, provider, papp.uuid)
         else:
             entry_id = "{}/{}_{}".format(_categories_collection, "entry" if papp.nx_name is None else papp.nx_name, papp.uuid)
-    except Exception as err:
+    except Exception :
         # print(err)
         entry_id = "/{}_{}".format("entry" if papp.nx_name is None else papp.nx_name,papp.uuid)
 

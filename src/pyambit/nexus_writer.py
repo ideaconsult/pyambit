@@ -1,12 +1,11 @@
 import math
-import numbers
 import re
 import traceback
 from typing import Dict, List
 
 import nexusformat.nexus as nx
 import numpy as np
-import pandas as pd
+
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
@@ -15,7 +14,6 @@ from pyambit.ambit_deco import add_ambitmodel_method
 from pyambit.datamodel import (
     Composition,
     EffectArray,
-    effects2df,
     ProtocolApplication,
     Study,
     SubstanceRecord,

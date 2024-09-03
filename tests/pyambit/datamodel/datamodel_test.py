@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 import pyambit.datamodel as mb
-from pydantic_core import from_json
+
 
 TEST_DIR = Path(__file__).parent.parent / "resources"
 

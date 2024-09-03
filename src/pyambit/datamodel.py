@@ -963,7 +963,7 @@ class ProtocolApplication(AmbitModel):
 
         # Collect alternative axis values - tbd - sorting may change order of alternative axes!
         if alt_axes is not None:
-            for primary_axis, alt_cols in alt_axes.items():
+            for _primary_axis, alt_cols in alt_axes.items():
                 for alt_col in alt_cols:
                     if alt_col in df.columns:
                         _tmp = sorted(df[alt_col].unique())
@@ -990,7 +990,7 @@ class ProtocolApplication(AmbitModel):
             df_set = split_df_by_columns(_df, _nonnumcols)
         # debug
 
-        for key, df in df_set.items():
+        for _key, df in df_set.items():
             # df.to_excel("{}_{}.xlsx".format(self.uuid,key),index=False)
 
             for endpointtype in df["endpointtype"].unique():

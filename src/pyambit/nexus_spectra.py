@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict
 
 import nexusformat.nexus.tree as nx
 import numpy as np

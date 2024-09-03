@@ -1,23 +1,14 @@
-import h5py
-import ramanchada2 as rc2
+
 import nexusformat.nexus as nx
-import numpy as np
-import pandas as pd
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import  Dict
 
 from pyambit.datamodel import (
-    Composition,
-    EffectArray,
-    effects2df,
     Protocol,
     ProtocolApplication,
     Citation,
-    Study,
     SubstanceRecord,
     Substances,
     Value,
-    MetaValueArray,
-    ValueArray,
     EffectRecord,
     EffectResult,
     EndpointCategory,
@@ -65,7 +56,7 @@ class Nexus2Ambit:
         
     
     def parse_substances(self,nxentry : nx.NXentry):
-        for entry_name, entry in nxentry.items():
+        for _entry_name, entry in nxentry.items():
             if isinstance(entry,nx.NXsample):
                 record: SubstanceRecord = self.substance_from_nexus(entry)
                 if record.i5uuid not in self.substances:
@@ -92,7 +83,7 @@ class Nexus2Ambit:
         dox = nxentry.get("experiment_documentation",None)
         protocol = None
         parameters = {}
-        if dox != None:
+        if dox is not None:
             _protocol = dox.get("protocol",None)
             if _protocol is None:
                 pass
@@ -174,7 +165,7 @@ class Nexus2Ambit:
                 pass        
             else:
                 continue
-            for name_data, data in enddpointtype_group.items():
+            for _name_data, data in enddpointtype_group.items():
                 if isinstance(data,nx.NXdata):
                     if self.index_only:
                         papp.effects.append(self.parse_effect(endpointtype_name,data,relative_path))    

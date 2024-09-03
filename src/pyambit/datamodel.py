@@ -139,7 +139,7 @@ class EffectResult(AmbitModel):
 EffectResult = create_model("EffectResult", __base__=EffectResult)
 
 
-class ValueArray(AmbitModel):
+class BaseValueArray(AmbitModel):
     unit: Optional[str] = None
     # the arrays can in fact contain strings, we don't need textValue!
     values: Union[npt.NDArray, None] = None
@@ -147,7 +147,7 @@ class ValueArray(AmbitModel):
     errorValue: Optional[Union[npt.NDArray, None]] = None
     # but loValue - upValue need some support
     # also loValue + textValue as used in composition data
-    auxiliary: Optional[Dict[str, npt.NDArray]] = None
+    #See ValueArray
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -157,16 +157,29 @@ class ValueArray(AmbitModel):
         values: npt.NDArray = None,
         unit: str = None,
         errorValue: npt.NDArray = None,
-        errQualifier: str = None,
-        auxiliary: Dict[str, npt.NDArray] = None,
+        errQualifier: str = None
     ):
         return cls(
             values=values,
             unit=unit,
             errorValue=errorValue,
-            errQualifier=errQualifier,
-            auxiliary=auxiliary,
+            errQualifier=errQualifier
         )
+
+    @classmethod
+    def model_construct(cls, **data):
+        def deserialize(value):
+            if isinstance(value, list):
+                return np.array(value)  # Convert lists back to numpy arrays
+            return value
+
+        values = deserialize(data.get("values"))
+        unit = data.get("unit")
+        errQualifier = data.get("errQualifier")
+        errorValue = deserialize(data.get("errorValue"))
+
+        return cls(values=values, unit=unit, errQualifier=errQualifier, errorValue=errorValue)
+
 
     def model_dump_json(self, **kwargs) -> str:
         def serialize(obj):
@@ -179,27 +192,159 @@ class ValueArray(AmbitModel):
         return json.dumps(model_dict, default=serialize, **kwargs)
 
     def __eq__(self, other):
-        def compare_auxiliary(aux1, aux2):
-            if aux1 is aux2:
-                return True
-            if aux1 is None or aux2 is None:
-                return False
-            if aux1.keys() != aux2.keys():
-                return False
-            return all(np.array_equal(aux1[k], aux2[k]) for k in aux1)
-
-        if not isinstance(other, ValueArray):
+        if not isinstance(other, BaseValueArray):
             return False
         return (
             self.unit == other.unit
             and self.errQualifier == other.errQualifier
             and np.array_equal(self.values, other.values)
-            and compare_auxiliary(self.auxiliary, other.auxiliary)
             and np.array_equal(self.errorValue, other.errorValue)
         )
 
+class MetaValueArray(BaseValueArray):
+    conditions: Optional[Dict[str, str]] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @classmethod
+    def create(
+        cls,
+        values: npt.NDArray = None,
+        unit: str = None,
+        errorValue: npt.NDArray = None,
+        errQualifier: str = None,
+        conditions: Optional[Dict[str, str]] = None
+    ):
+        return cls(
+            values=values,
+            unit=unit,
+            errorValue=errorValue,
+            errQualifier=errQualifier,
+            conditions=conditions
+        )
+
+    @classmethod
+    def model_construct(cls, **data):
+        base_instance = super().model_construct(**data)
+        conditions = data.get("conditions", None)
+        return cls(
+            values=base_instance.values,
+            unit=base_instance.unit,
+            errorValue=base_instance.errorValue,
+            errQualifier=base_instance.errQualifier,
+            conditions=conditions
+        )
+
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert NumPy arrays to lists
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
+
+    def __eq__(self, other):
+        if not isinstance(other, MetaValueArray):
+            return False
+        return (
+            super().__eq__(other)
+            and self.conditions == other.conditions
+        )
+
+class ValueArray(MetaValueArray):
+    auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    @classmethod
+    def create(
+        cls,
+        values: npt.NDArray = None,
+        unit: str = None,
+        errorValue: npt.NDArray = None,
+        errQualifier: str = None,
+        conditions: Optional[Dict[str, str]] = None,
+        auxiliary: Dict[str, Union[npt.NDArray, 'MetaValueArray']] = None,
+    ):
+        return cls(
+            values=values,
+            unit=unit,
+            errorValue=errorValue,
+            errQualifier=errQualifier,
+            conditions = conditions,
+            auxiliary=auxiliary,
+        )
+
+    @classmethod
+    def model_construct(cls, **data):
+        def deserialize(value):
+            if isinstance(value, list):
+                return np.array(value)  # Convert lists back to numpy arrays
+            return value
+
+        base_data = {k: deserialize(v) for k, v in data.items() if k != "auxiliary"}
+        base_instance = MetaValueArray.model_construct(**base_data)
+        
+        auxiliary_data = data.get("auxiliary", {})
+        
+        if auxiliary_data is not None:
+            auxiliary = {}
+            for key, value in auxiliary_data.items():
+                if isinstance(value, dict):  # Check if it's a dictionary representing a MetaValueArray
+                    auxiliary[key] = MetaValueArray.model_construct(**value)
+                else:
+                    auxiliary[key] = deserialize(value)
+        else:
+            auxiliary = None
+        
+        return cls(
+            values=base_instance.values,
+            unit=base_instance.unit,
+            errQualifier=base_instance.errQualifier,
+            errorValue=base_instance.errorValue,
+            conditions=base_instance.conditions,
+            auxiliary=auxiliary
+        )
+    def model_dump(self):
+        base_dict = super().model_dump()
+        return {
+            **base_dict,
+            "auxiliary": self.auxiliary
+        }
+    
+    def __eq__(self, other):
+        if not isinstance(other, ValueArray):
+            return False
+        return (
+            super().__eq__(other)
+            and self.compare_auxiliary(self.auxiliary, other.auxiliary)
+        )
+
+    @staticmethod
+    def compare_auxiliary(aux1, aux2):
+        if aux1 is aux2:
+            return True
+        if aux1 is None or aux2 is None:
+            return False
+        if aux1.keys() != aux2.keys():
+            return False
+        return all(np.array_equal(aux1[k], aux2[k]) for k in aux1)
+
+    def model_dump_json(self, **kwargs) -> str:
+        def serialize(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert NumPy arrays to lists
+            if isinstance(obj, MetaValueArray):
+                return obj.model_dump()  # Serialize BaseValueArray to a dictionary
+            raise TypeError(f"Type {type(obj).__name__} not serializable")
+
+        model_dict = self.model_dump()
+        return json.dumps(model_dict, default=serialize, **kwargs)
+    
+    
+
 
 class EffectRecord(AmbitModel):
+    nx_name: Optional[str] = None
     endpoint: str
     endpointtype: Optional[str] = None
     result: EffectResult = None
@@ -625,6 +770,7 @@ class ProtocolApplication(AmbitModel):
     """
 
     uuid: Optional[str] = None
+    nx_name: Optional[str] = None
     # reliability: Optional[ReliabilityParams]
     interpretationResult: Optional[str] = None
     interpretationCriteria: Optional[str] = None
@@ -817,7 +963,7 @@ class ProtocolApplication(AmbitModel):
 
         # Collect alternative axis values - tbd - sorting may change order of alternative axes!
         if alt_axes is not None:
-            for primary_axis, alt_cols in alt_axes.items():
+            for _primary_axis, alt_cols in alt_axes.items():
                 for alt_col in alt_cols:
                     if alt_col in df.columns:
                         _tmp = sorted(df[alt_col].unique())
@@ -844,7 +990,7 @@ class ProtocolApplication(AmbitModel):
             df_set = split_df_by_columns(_df, _nonnumcols)
         # debug
 
-        for key, df in df_set.items():
+        for _key, df in df_set.items():
             # df.to_excel("{}_{}.xlsx".format(self.uuid,key),index=False)
 
             for endpointtype in df["endpointtype"].unique():

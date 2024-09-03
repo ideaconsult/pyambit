@@ -21,14 +21,11 @@ from pyambit.datamodel import (
     EndpointCategory,
     SampleLink
 )
+
 from pyambit.solr_writer import Ambit2Solr
 
 from nexusformat.nexus import nxload
-import nexusformat.nexus as nx
-import numpy as np 
-import ramanchada2 as rc2
 from pathlib import Path
-import json
 
 
 #    _substances = Substances(substance=[substances.substance[0]])

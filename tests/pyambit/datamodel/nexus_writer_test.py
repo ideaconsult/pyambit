@@ -44,6 +44,7 @@ def test_substances(substances):
 def test_study(substances):
     for substance in substances.substance:
         for study in substance.study:
+            study.nx_name = "test"
             file = os.path.join(
                 tempfile.gettempdir(), "study_{}.nxs".format(study.uuid)
             )
@@ -55,3 +56,4 @@ def test_study(substances):
             except Exception as err:
                 print(study)
                 raise err
+            

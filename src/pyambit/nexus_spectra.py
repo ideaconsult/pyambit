@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict
 
 import nexusformat.nexus.tree as nx
 import numpy as np
@@ -28,7 +28,7 @@ def spe2effect(
 
 def configure_papp(
     papp: mx.ProtocolApplication = None,
-    instrument=None,
+    instrument=("vendor","model"),
     wavelength=None,
     provider="FNMT",
     sample="PST",
@@ -57,9 +57,13 @@ def configure_papp(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
     )
     papp.parameters = {
-        "E.method": "Raman spectrometry",
-        "wavelength": wavelength,
-        "T.instrument_model": instrument,
+        "experiment_documentation/E.method": "Raman spectroscopy",
+        "experiment_type" : "Raman spectroscopy" ,
+        "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength,unit="nm"),
+        "instrument/device_information/vendor": instrument[0],
+        "instrument/device_information/model": instrument[1],
+        "definition":"NXRaman"
+        
     }
 
     papp.uuid = "{}-{}".format(

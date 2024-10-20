@@ -38,7 +38,7 @@ class Nexus2Ambit:
         try:
             record  =  SubstanceRecord(
                 URI=None,
-                ownerUUID="owner-uuid",
+                ownerUUID=nxentry.attrs["owner-uuid"],
                 ownerName=nxentry.attrs["ownerName"],
                 i5uuid=nxentry.attrs["uuid"],
                 name=nxentry["name"].nxdata,

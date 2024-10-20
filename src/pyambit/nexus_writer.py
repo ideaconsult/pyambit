@@ -22,37 +22,54 @@ from pyambit.datamodel import (
     MetaValueArray,
     ValueArray
 )
-
+# tbd parameterize
 def param_lookup(prm,value):
-    target = "environment"
-    if "instrument" in prm.lower():
-        target = "instrument"
-    if "technique" in prm.lower():
-        target = "instrument"
-    if "wavelength" in prm.lower():
-        target = "instrument/beam_incident"
-    elif "sample" in prm.lower():
-        target = "sample"
-    elif "material" in prm.lower():
-        target = "sample"
+    target = ["environment"]
+    _prmlo = prm.lower()
+    if "instrument" in _prmlo:
+        target = ["instrument"]
+    elif "technique" in _prmlo:
+        target = ["instrument"]
+    elif "wavelength" in _prmlo:
+        target = ["instrument","beam_incident"]
+    elif "sample" in _prmlo:
+        target = ["sample"]
+    elif "material" in _prmlo:
+        target = ["sample"]
+    elif "dispers" in _prmlo:
+        target = ["sample"]       
+    elif "vortex" in _prmlo:
+        target = ["sample"]   
+    elif "stirr" in _prmlo:
+        target = ["sample"]                     
     elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
-        target = "experiment_documentation"
+        target = ["experiment_documentation"]
     elif "E.SOP_REFERENCE" == prm:
-        target = "experiment_documentation"
+        target = ["experiment_documentation"]
     elif "OPERATOR" == prm:
-        target = "experiment_documentation"
+        target = ["experiment_documentation"]
     elif prm.startswith("T."):
-        target = "instrument"
+        target = ["instrument"]
+    elif prm.startswith("E."):
+        target = ["environment"]
+    elif "medium" in _prmlo:
+        target = ["environment"]
+    elif "cell" in _prmlo:
+        target = ["environment"]
+    elif "well" in _prmlo:
+        target = ["environment"]
+    elif "animal" in _prmlo:
+        target = ["environment"]                               
     elif "EXPERIMENT_END_DATE" == prm:
-        target = "end_time"
+        target = ["end_time"]
     elif "EXPERIMENT_START_DATE" == prm:
-        target = "start_time"
+        target = ["start_time"]
     elif "__input_file" == prm:
-        target = "experiment_documentation"
+        target = ["experiment_documentation"]
     else:
-        target="parameters"
-
-    return "{}/{}".format(target,prm)
+        target= ["parameters"]
+    target.append(prm)
+    return target
 
 @add_ambitmodel_method(ProtocolApplication)
 def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=False):
@@ -241,8 +258,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             try:
                 value = papp.parameters[prm_path]
                 prms = prm_path.split("/")
-                if len(prms)==0:
+                if len(prms)==1:
                     prms = param_lookup(prm_path,value)
+                #print(prms,prms[:-1])
                 _entry = nx_root[entry_id]
                 for _group in prms[:-1]:
                     if _group not in _entry:

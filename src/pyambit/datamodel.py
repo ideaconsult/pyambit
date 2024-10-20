@@ -566,11 +566,13 @@ class EffectArray(EffectRecord):
         )
 
     def __repr__(self):
+        repr_endpointtype = repr(self.endpointtype) if self.endpointtype else "None"
         repr_signal = repr(self.signal) if self.signal else "None"
         repr_axes = repr(self.axes) if self.axes else "None"
         repr_axis_groups = repr(self.axis_groups) if self.axis_groups else "None"
         return (
-            f"EffectArray(signal={repr_signal}, axes={repr_axes}, "
+            f"EffectArray(endpoint={self.endpoint}, endpointtype={self.endpointtype}, "
+            f"signal={repr_signal}, axes={repr_axes}, "
             f"axis_groups={repr_axis_groups}, {super().__repr__()})"
         )
 
@@ -1640,7 +1642,7 @@ def find_string_only_columns(df):
         if is_string_only(df[col])
         and pd.to_numeric(df[col], errors="coerce").isna().all()
     ]
-
+    # print(string_only_cols)
     return string_only_cols
 
 

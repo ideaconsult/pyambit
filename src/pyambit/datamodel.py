@@ -1128,6 +1128,8 @@ class ProtocolApplication(AmbitModel):
                                 auxsignal_cols,
                             )
                         )
+                        # Remove items where the value is None or NaN
+                        new_conditions = {k: v for k, v in new_conditions.items() if v is not None and not (isinstance(v, float) and np.isnan(v))}
 
                         earray = EffectArray(
                             endpoint=endpoint,

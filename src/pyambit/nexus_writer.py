@@ -3,6 +3,7 @@ import re
 import traceback
 from typing import Dict, List
 
+from h5py import string_dtype
 import nexusformat.nexus as nx
 import numpy as np
 
@@ -492,36 +493,52 @@ def effectarray2data(effect: EffectArray):
         #auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
     )
     aux_signals = []
+
     if effect.signal.auxiliary:
         for a in effect.signal.auxiliary:
             item = effect.signal.auxiliary[a]
-            if isinstance(item, MetaValueArray or  isinstance(item, ValueArray)):
+            if isinstance(item, MetaValueArray or isinstance(item, ValueArray)):
                 _tmp = item.values
                 _tmp_unit = item.unit
                 _tmp_meta = item.conditions
-            
+        
             elif isinstance(item, np.ndarray):
                 _tmp = item
                 _tmp_unit = effect.signal.unit
                 _tmp_meta = None
             else:
                 continue
-                
 
             if _tmp.size > 0:
-                _auxname= a.replace("/", "_")
-                nxdata[_auxname] = nx.tree.NXfield(
-                        _tmp,
-                        name=_auxname,
-                        units=_tmp_unit,
-                        long_name="{} {}".format(a,"" if _tmp_unit is None else _tmp_unit).strip()
-                    )
+                _auxname = a.replace("/", "_")
+                long_name = "{} ({}) {}".format(
+                                            effect.endpoint,
+                                            a,
+                                            "" if effect.signal.unit is None else effect.signal.unit,
+                                        ).strip()
+                if _auxname == "textValue":
+                    nxdata[_auxname] = nx.tree.NXfield(
+                            _tmp,
+                            name=_auxname,
+                            units=_tmp_unit,
+                            long_name=long_name,
+                            dtype=string_dtype(encoding='utf-8')
+                        )                    
+                else:
+                    nxdata[_auxname] = nx.tree.NXfield(
+                            _tmp,
+                            name=_auxname,
+                            units=_tmp_unit,
+                            long_name=long_name
+                        )
+
                 if _tmp_meta is not None:
                     for key in _tmp_meta:
                         nxdata[_auxname].attrs[key] = _tmp_meta[key]
                 aux_signals.append(_auxname)
-    if len(aux_signals) > 0:
-        nxdata.attrs["auxiliary_signals"] = aux_signals 
+
+        if len(aux_signals) > 0:
+            nxdata.attrs["auxiliary_signals"] = aux_signals
     if effect.conditions:
         for key in effect.conditions:
             nxdata.attrs[key] = effect.conditions[key]

@@ -33,10 +33,11 @@ def test_basevaluearray_roundtrip():
     val = mb.BaseValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0)
 
     data = json.loads(val.model_dump_json())
-    print(data)
+    # print(data)
     new_val = mb.BaseValueArray.model_construct(**data)
 
     assert val == new_val
+
 
 def test_metavaluearray_roundtrip():
     """
@@ -47,10 +48,11 @@ def test_metavaluearray_roundtrip():
     val = mb.MetaValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0 ,conditions={"test" : "test"})
 
     data = json.loads(val.model_dump_json())
-    print(data)
+    # print(data)
     new_val = mb.MetaValueArray.model_construct(**data)
 
     assert val == new_val    
+
 
 def test_valuearray_roundtrip():
     """
@@ -88,9 +90,9 @@ def test_valuearrayaux_roundtrip():
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
     for key in val.auxiliary:
-        print("old",key,type(val.auxiliary[key]))
+        print("old", key,type(val.auxiliary[key]))
     for key in new_val.auxiliary:
-        print("new",key,type(new_val.auxiliary[key]))
+        print("new", key,type(new_val.auxiliary[key]))
     assert val == new_val
 
 

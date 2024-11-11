@@ -927,13 +927,22 @@ class ProtocolApplication(AmbitModel):
         # Determine the shape of the multidimensional matrix
         shape = tuple(len(values) for values in axis_values)
         # Initialize the multidimensional matrix with NaNs
-        matrix = np.full(shape, "" if signal_col == "textValue" else np.nan)
+        if signal_col == "textValue":
+            matrix = np.full(shape, "")
+        else:
+            matrix = np.full(shape, np.nan)
         matrix_errors = None if errors_col is None else np.full(shape, np.nan)
 
         auxsignals = {}
         if auxsignal_cols:
             for a in auxsignal_cols:
-                auxsignals[a] = np.full(shape, "" if a == "textValue" else np.nan)
+                if a == "textValue":
+                    _arr = np.empty(shape, dtype=object)
+                    if len(shape) > 0:
+                        _arr[:] = ""
+                    auxsignals[a] = _arr
+                else:
+                    auxsignals[a] = np.full(shape, np.nan)
 
         # Populate the matrix with signal values
         for _, row in df.iterrows():
@@ -952,11 +961,12 @@ class ProtocolApplication(AmbitModel):
                 if auxsignal_cols:
                     for a in auxsignal_cols:
                         if not pd.isna(row[a]):
-                            auxsignals[a][indices] = row[a]
+                            auxsignals[a][indices] = row[a].decode('utf-8')
+                            # print(row[a], type(row[a]))
             except Exception as x:
-                print("matrix", self.uuid)
-                print(row)
-                print(primary_axis_cols)
+                # print("matrix", self.uuid)
+                # print(row)
+                # print(primary_axis_cols)
                 print(traceback.format_exc())
 
         for axis in primary_axis_cols:
@@ -991,6 +1001,8 @@ class ProtocolApplication(AmbitModel):
         if len(_nonnumcols) > 0:
             df_set = split_df_by_columns(_df, _nonnumcols)
         # debug
+        # here the null columns (e.g. replicates) are lost
+        # print(df_set)
 
         for _key, df in df_set.items():
             # df.to_excel("{}_{}.xlsx".format(self.uuid,key),index=False)
@@ -1646,7 +1658,7 @@ def find_string_only_columns(df):
     return string_only_cols
 
 
-def split_df_by_columns(df, columns):
+def split_df_by_columns_bad_with_nans(df, columns):
     # Create a dictionary to hold the split DataFrames
     split_dfs = {}
 
@@ -1665,3 +1677,27 @@ def split_df_by_columns(df, columns):
         split_dfs[key] = split_df
 
     return split_dfs
+
+
+
+def split_df_by_columns(df, columns):
+    # Create a dictionary to hold the split DataFrames
+    split_dfs = {}
+
+    # Identify unique combinations of values for the specified columns
+    unique_combinations = df[columns].drop_duplicates()
+
+    for _, row in unique_combinations.iterrows():
+        # Create a filter condition that treats NaN as equal
+        filter_condition = pd.DataFrame({col: (df[col] == row[col]) | (pd.isna(df[col]) & pd.isna(row[col]))
+                                         for col in columns}).all(axis=1)
+
+        # Create a new DataFrame for this combination
+        split_df = df[filter_condition]
+
+        # Use a tuple of the unique values as the key, treating NaN gracefully
+        key = tuple(row)
+        split_dfs[key] = split_df
+
+    return split_dfs
+

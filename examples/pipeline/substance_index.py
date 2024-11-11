@@ -23,26 +23,26 @@ from pathlib import Path
 def main():
     try:
         path = Path(upstream["convert2nexus"]["nexus"])
-        parser : Nexus2Ambit = Nexus2Ambit(domain="/CHARISMA",index_only=True)        
+        parser : Nexus2Ambit = Nexus2Ambit(domain="/CHARISMA", index_only=True)
         for item in path.rglob('*.nxs'):
             relative_path = item.relative_to(path)
-            absolute_path = item.resolve() 
+            absolute_path = item.resolve()
             if item.is_dir():
                 pass
             elif item.name.endswith(".nxs"):
-                absolute_path = item.resolve() 
+                absolute_path = item.resolve()
                 nexus_file = nxload(absolute_path)
-                parser.parse(nexus_file,relative_path.as_posix())
-            #break
-        substances : Substances = parser.get_substances()   
+                parser.parse(nexus_file, relative_path.as_posix())
+            # break
+        substances : Substances = parser.get_substances()
 
         with Ambit2Solr(prefix="CRMA") as writer:
             writer.write(substances, product["solr_index"])
-      
-        ambit_json = substances.model_dump_json(exclude_none=True,indent=4)
+
+        ambit_json = substances.model_dump_json(exclude_none=True, indent=4)
         with open(product["ambit_json"], 'w') as file:
-            file.write(ambit_json) 
+            file.write(ambit_json)
     except Exception as err:
         print(err)
 
-main()        
+main()

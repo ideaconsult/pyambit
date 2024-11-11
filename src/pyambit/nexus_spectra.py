@@ -28,14 +28,14 @@ def spe2effect(
 
 def configure_papp(
     papp: mx.ProtocolApplication = None,
-    instrument=("vendor","model"),
+    instrument=("vendor", "model"),
     wavelength=None,
-    provider="FNMT",
+    provider="ABCD",
     sample="PST",
-    sample_provider="CHARISMA",
-    investigation="Round Robin 1",
+    sample_provider="TEST",
+    investigation="My investigation",
     citation: mx.Citation = None,
-    prefix="CRMA",
+    prefix="TEST",
     meta=None,
 ):
     if papp is None:
@@ -59,11 +59,10 @@ def configure_papp(
     papp.parameters = {
         "experiment_documentation/E.method": "Raman spectroscopy",
         "experiment_type" : "Raman spectroscopy" ,
-        "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength,unit="nm"),
+        "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength, unit="nm"),
         "instrument/device_information/vendor": instrument[0],
         "instrument/device_information/model": instrument[1],
-        "definition":"NXRaman"
-        
+        "definition": "NXRaman"
     }
 
     papp.uuid = "{}-{}".format(

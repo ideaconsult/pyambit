@@ -201,6 +201,7 @@ class BaseValueArray(AmbitModel):
             and np.array_equal(self.errorValue, other.errorValue)
         )
 
+
 class MetaValueArray(BaseValueArray):
     conditions: Optional[Dict[str, str]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -251,6 +252,7 @@ class MetaValueArray(BaseValueArray):
             and self.conditions == other.conditions
         )
 
+
 class ValueArray(MetaValueArray):
     auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -270,7 +272,7 @@ class ValueArray(MetaValueArray):
             unit=unit,
             errorValue=errorValue,
             errQualifier=errQualifier,
-            conditions = conditions,
+            conditions=conditions,
             auxiliary=auxiliary,
         )
 
@@ -283,9 +285,8 @@ class ValueArray(MetaValueArray):
 
         base_data = {k: deserialize(v) for k, v in data.items() if k != "auxiliary"}
         base_instance = MetaValueArray.model_construct(**base_data)
-        
         auxiliary_data = data.get("auxiliary", {})
-        
+
         if auxiliary_data is not None:
             auxiliary = {}
             for key, value in auxiliary_data.items():
@@ -295,7 +296,7 @@ class ValueArray(MetaValueArray):
                     auxiliary[key] = deserialize(value)
         else:
             auxiliary = None
-        
+
         return cls(
             values=base_instance.values,
             unit=base_instance.unit,
@@ -304,13 +305,14 @@ class ValueArray(MetaValueArray):
             conditions=base_instance.conditions,
             auxiliary=auxiliary
         )
+
     def model_dump(self):
         base_dict = super().model_dump()
         return {
             **base_dict,
             "auxiliary": self.auxiliary
         }
-    
+
     def __eq__(self, other):
         if not isinstance(other, ValueArray):
             return False
@@ -339,8 +341,6 @@ class ValueArray(MetaValueArray):
 
         model_dict = self.model_dump()
         return json.dumps(model_dict, default=serialize, **kwargs)
-    
-    
 
 
 class EffectRecord(AmbitModel):
@@ -566,12 +566,12 @@ class EffectArray(EffectRecord):
         )
 
     def __repr__(self):
-        repr_endpointtype = repr(self.endpointtype) if self.endpointtype else "None"
+        repr_endpointtype = repr(self.endpointtype) if self.endpointtype else ""
         repr_signal = repr(self.signal) if self.signal else "None"
         repr_axes = repr(self.axes) if self.axes else "None"
         repr_axis_groups = repr(self.axis_groups) if self.axis_groups else "None"
         return (
-            f"EffectArray(endpoint={self.endpoint}, endpointtype={self.endpointtype}, "
+            f"EffectArray(endpoint={self.endpoint}, endpointtype={repr_endpointtype}, "
             f"signal={repr_signal}, axes={repr_axes}, "
             f"axis_groups={repr_axis_groups}, {super().__repr__()})"
         )
@@ -963,7 +963,7 @@ class ProtocolApplication(AmbitModel):
                         if not pd.isna(row[a]):
                             auxsignals[a][indices] = row[a].decode('utf-8')
                             # print(row[a], type(row[a]))
-            except Exception as x:
+            except:
                 # print("matrix", self.uuid)
                 # print(row)
                 # print(primary_axis_cols)
@@ -1700,4 +1700,3 @@ def split_df_by_columns(df, columns):
         split_dfs[key] = split_df
 
     return split_dfs
-

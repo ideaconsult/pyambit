@@ -10,8 +10,6 @@ import numpy as np
 
 from pyambit.ambit_deco import add_ambitmodel_method
 
-# from pydantic import validate_arguments
-
 from pyambit.datamodel import (
     Composition,
     EffectArray,
@@ -23,8 +21,10 @@ from pyambit.datamodel import (
     MetaValueArray,
     ValueArray
 )
+
 # tbd parameterize
-def param_lookup(prm,value):
+
+def param_lookup(prm, value):
     target = ["environment"]
     _prmlo = prm.lower()
     if "instrument" in _prmlo:
@@ -32,17 +32,17 @@ def param_lookup(prm,value):
     elif "technique" in _prmlo:
         target = ["instrument"]
     elif "wavelength" in _prmlo:
-        target = ["instrument","beam_incident"]
+        target = ["instrument", "beam_incident"]
     elif "sample" in _prmlo:
         target = ["sample"]
     elif "material" in _prmlo:
         target = ["sample"]
     elif "dispers" in _prmlo:
-        target = ["sample"]       
+        target = ["sample"]
     elif "vortex" in _prmlo:
-        target = ["sample"]   
+        target = ["sample"]
     elif "stirr" in _prmlo:
-        target = ["sample"]                     
+        target = ["sample"]
     elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
         target = ["experiment_documentation"]
     elif "E.SOP_REFERENCE" == prm:
@@ -68,7 +68,7 @@ def param_lookup(prm,value):
     elif "__input_file" == prm:
         target = ["experiment_documentation"]
     else:
-        target= ["parameters"]
+        target = ["parameters"]
     target.append(prm)
     return target
 
@@ -127,9 +127,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             entry_id = "{}/{}_{}".format(_categories_collection, "entry" if papp.nx_name is None else papp.nx_name, papp.uuid)
     except Exception :
         # print(err)
-        entry_id = "/{}_{}".format("entry" if papp.nx_name is None else papp.nx_name,papp.uuid)
+        entry_id = "/{}_{}".format("entry" if papp.nx_name is None else papp.nx_name, papp.uuid)
 
-    #print(entry_id)
     _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
@@ -209,13 +208,13 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     )
 
     # no need to repeat these, rather make a xml definition and refer to it
-    #nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
-    #nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
-    #nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
-    #nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
-    #nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
-    #nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
-    #nxmap.attrs["EffectRecords"] = "datasets"
+    # nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
+    # nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
+    # nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
+    # nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
+    # nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
+    # nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
+    # nxmap.attrs["EffectRecords"] = "datasets"
 
     try:
         citation_id = "{}/reference".format(entry_id)
@@ -259,8 +258,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             try:
                 value = papp.parameters[prm_path]
                 prms = prm_path.split("/")
-                if len(prms)==1:
-                    prms = param_lookup(prm_path,value)
+                if len(prms) == 1:
+                    prms = param_lookup(prm_path, value)
                 #print(prms,prms[:-1])
                 _entry = nx_root[entry_id]
                 for _group in prms[:-1]:
@@ -268,10 +267,10 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                         if _group == "instrument":
                             _entry[_group] = nx.NXinstrument()
                         elif _group == "environment":
-                            _entry[_group] = nx.NXenvironment()                            
+                            _entry[_group] = nx.NXenvironment()
                         elif _group == "parameters":
                             _entry[_group] = nx.NXcollection()
-                        elif _group == "experiment_documentation":                            
+                        elif _group == "experiment_documentation":
                             _entry[_group] = nx.NXnote()
                         else:
                             _entry[_group] = nx.NXgroup()
@@ -282,9 +281,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 if isinstance(value, str):
                     target[prm] = nx.NXfield(value)
                 elif isinstance(value, int):
-                    target[prm] = nx.NXfield(value)    
+                    target[prm] = nx.NXfield(value)
                 elif isinstance(value, float):
-                    target[prm] = nx.NXfield(value)                                        
+                    target[prm] = nx.NXfield(value)
                 elif isinstance(value, Value):
                         # tbd ranges?
                     target[prm] = nx.NXfield(value.loValue, unit=value.unit)
@@ -490,7 +489,7 @@ def effectarray2data(effect: EffectArray):
         signal=signal,
         axes=None if len(axes) == 0 else axes,
         errors=effect.signal.errorValue
-        #auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
+        # auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
     )
     aux_signals = []
 
@@ -598,7 +597,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                     entry[_group_key]["description"] = effect.endpointtype
             #    entry[_group_key] = _endpointtype_groups[_group_key]
 
-            entryid = "{}_{}".format(effect.endpoint if effect.nx_name is None else effect.nx_name.replace("/","_"), index)
+            entryid = "{}_{}".format(effect.endpoint if effect.nx_name is None else effect.nx_name.replace("/", "_"), index)
             if entryid in entry[_group_key]:
                 del entry[_group_key][entryid]
                 print("replacing {}/{}".format(_group_key, entryid))

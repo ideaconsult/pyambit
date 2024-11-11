@@ -55,7 +55,6 @@ def test_substances(substances):
 
 
 def test_study(substances):
-    _break = False
     for substance in substances.substance:
         for study in substance.study:
 
@@ -69,15 +68,15 @@ def test_study(substances):
                 inspect_nexus_tree(nxroot)
                 nxroot.save(file, mode="w")
             except Exception as err:           
-                #inspect_nexus_tree(nxroot)
-                #print(study.model_dump_json(exclude_none=True))
+                # inspect_nexus_tree(nxroot)
+                # print(study.model_dump_json(exclude_none=True))
                 effectarrays_only, df = study.convert_effectrecords2array()
                 df.dropna(how="all").to_excel("bad.xlsx")
                 for effect in effectarrays_only:
                     for key in effect.signal.auxiliary:
                         for element in effect.signal.auxiliary[key].flat:
                             print(element, end='.')
-                #print(nxroot.tree)
+                # print(nxroot.tree)
                 raise err
 
     

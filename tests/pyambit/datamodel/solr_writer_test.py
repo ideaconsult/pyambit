@@ -32,11 +32,9 @@ def substances():
 def test_substances(substances):
 
     _substances = Substances(substance=[substances.substance[0]])
-    writer: Ambit2Solr  = Ambit2Solr(prefix= "TEST")
+    writer: Ambit2Solr = Ambit2Solr(prefix="TEST")
     _json = writer.to_json(_substances)
     _file = os.path.join(tempfile.gettempdir(), "substances.json")
     print(_file)
     with open(_file, 'w') as file:
-        json.dump(_json,file)
-    
-    
+        json.dump(_json, file)

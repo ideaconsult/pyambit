@@ -51,7 +51,7 @@ def test_metavaluearray_roundtrip():
     # print(data)
     new_val = mb.MetaValueArray.model_construct(**data)
 
-    assert val == new_val    
+    assert val == new_val
 
 
 def test_valuearray_roundtrip():
@@ -60,7 +60,7 @@ def test_valuearray_roundtrip():
     """
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
-    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0,conditions={"test" : "test"})
+    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0, conditions={"test" : "test"})
 
     assert val.conditions is not None
     data = json.loads(val.model_dump_json())
@@ -90,9 +90,9 @@ def test_valuearrayaux_roundtrip():
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
     for key in val.auxiliary:
-        print("old", key,type(val.auxiliary[key]))
+        print("old", key, type(val.auxiliary[key]))
     for key in new_val.auxiliary:
-        print("new", key,type(new_val.auxiliary[key]))
+        print("new", key, type(new_val.auxiliary[key]))
     assert val == new_val
 
 
@@ -112,8 +112,8 @@ def test_valuearray_roundtrip_withaux():
 
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
-    print(val,print(new_val))
     assert val == new_val
+
 
 def test_valuearray_roundtrip_with_arrayaux():
     """
@@ -121,7 +121,7 @@ def test_valuearray_roundtrip_with_arrayaux():
     """
 
     b1: npt.NDArray[np.float64] = np.ones(10)
-    aux = mb.MetaValueArray(values=b1,unit="bunit")
+    aux = mb.MetaValueArray(values=b1, unit="bunit")
 
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
@@ -135,7 +135,6 @@ def test_valuearray_roundtrip_with_arrayaux():
 
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
-    #print(val,print(new_val))
     assert val == new_val
 
 

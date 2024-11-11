@@ -146,8 +146,8 @@ class BaseValueArray(AmbitModel):
     errQualifier: Optional[str] = None
     errorValue: Optional[Union[npt.NDArray, None]] = None
     # but loValue - upValue need some support
-    # also loValue + textValue as used in composition data
-    #See ValueArray
+    # also loValue + textValue as used in composition / analytics data
+    # See ValueArray
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -179,7 +179,6 @@ class BaseValueArray(AmbitModel):
         errorValue = deserialize(data.get("errorValue"))
 
         return cls(values=values, unit=unit, errQualifier=errQualifier, errorValue=errorValue)
-
 
     def model_dump_json(self, **kwargs) -> str:
         def serialize(obj):
@@ -256,7 +255,7 @@ class MetaValueArray(BaseValueArray):
 class ValueArray(MetaValueArray):
     auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     @classmethod
     def create(
         cls,
@@ -1677,7 +1676,6 @@ def split_df_by_columns_bad_with_nans(df, columns):
         split_dfs[key] = split_df
 
     return split_dfs
-
 
 
 def split_df_by_columns(df, columns):

@@ -24,6 +24,7 @@ from pyambit.datamodel import (
 
 # tbd parameterize
 
+
 def param_lookup(prm, value):
     target = ["environment"]
     _prmlo = prm.lower()
@@ -60,7 +61,7 @@ def param_lookup(prm, value):
     elif "well" in _prmlo:
         target = ["environment"]
     elif "animal" in _prmlo:
-        target = ["environment"]                               
+        target = ["environment"]
     elif "EXPERIMENT_END_DATE" == prm:
         target = ["end_time"]
     elif "EXPERIMENT_START_DATE" == prm:
@@ -183,7 +184,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     papp.protocol.topcategory,
                     papp.protocol.category.code,
                     papp.protocol.guideline)
-                
+
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
@@ -260,7 +261,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 prms = prm_path.split("/")
                 if len(prms) == 1:
                     prms = param_lookup(prm_path, value)
-                #print(prms,prms[:-1])
+                # print(prms,prms[:-1])
                 _entry = nx_root[entry_id]
                 for _group in prms[:-1]:
                     if _group not in _entry:
@@ -277,7 +278,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     _entry = _entry[_group]
                 target = _entry
                 prm = prms[-1]
-                
+
                 if isinstance(value, str):
                     target[prm] = nx.NXfield(value)
                 elif isinstance(value, int):
@@ -285,7 +286,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 elif isinstance(value, float):
                     target[prm] = nx.NXfield(value)
                 elif isinstance(value, Value):
-                        # tbd ranges?
+                    # tbd ranges?
                     target[prm] = nx.NXfield(value.loValue, unit=value.unit)
                 else:
                     target[prm] = nx.NXfield(str(value))
@@ -500,7 +501,7 @@ def effectarray2data(effect: EffectArray):
                 _tmp = item.values
                 _tmp_unit = item.unit
                 _tmp_meta = item.conditions
-        
+
             elif isinstance(item, np.ndarray):
                 _tmp = item
                 _tmp_unit = effect.signal.unit
@@ -522,7 +523,7 @@ def effectarray2data(effect: EffectArray):
                             units=_tmp_unit,
                             long_name=long_name,
                             dtype=string_dtype(encoding='utf-8')
-                        )                    
+                        )
                 else:
                     nxdata[_auxname] = nx.tree.NXfield(
                             _tmp,

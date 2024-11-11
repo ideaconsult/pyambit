@@ -28,19 +28,19 @@ class Ambit2Solr:
         pass
 
     def prm2solr(self, params : Dict, key : str, value : Union[str, Value, None]):
-            if isinstance(value, str):
-                params["{}_s".format(key)] = value
-            elif isinstance(value, int):    
-                params["{}_d".format(key)] = value            
-            elif isinstance(value, float):    
-                params["{}_d".format(key)] = value
-            elif isinstance(value, Value):
-                if value.loValue is not None:
-                    params["{}_d".format(key)] = value.loValue
-                if value.unit is not None:
-                    params["{}_UNIT_s".format(key)] = value.unit
+        if isinstance(value, str):
+            params["{}_s".format(key)] = value
+        elif isinstance(value, int):
+            params["{}_d".format(key)] = value
+        elif isinstance(value, float):
+            params["{}_d".format(key)] = value
+        elif isinstance(value, Value):
+            if value.loValue is not None:
+                params["{}_d".format(key)] = value.loValue
+            if value.unit is not None:
+                params["{}_UNIT_s".format(key)] = value.unit
 
-    def effectresult2solr(self, effect_result: EffectResult, solr_index=None ):
+    def effectresult2solr(self, effect_result: EffectResult, solr_index=None):
         if solr_index is None:
             solr_index = {}
         if effect_result.loValue is not None:
@@ -58,17 +58,17 @@ class Ambit2Solr:
 
     def effectrecord2solr(self, effect: EffectRecord, solr_index=None):
         if solr_index is None:
-            solr_index = {}            
+            solr_index = {}
         if isinstance(effect, EffectArray):
-            # tbd - this is new in pyambit, we did not have array results implementation            
-            if effect.result is not None:  #EffectResult
+            # tbd - this is new in pyambit, we did not have array results implementation
+            if effect.result is not None:  # EffectResult
                 self.effectresult2solr(effect.result, solr_index)
-            # e.g. vector search                
+            # e.g. vector search
             if effect.endpointtype == "embeddings":
                 solr_index[effect.endpoint] = effect.signal.values.tolist()
         elif isinstance(effect, EffectRecord):
-            #conditions
-            if effect.result is not None:  #EffectResult
+            # conditions
+            if effect.result is not None:  # EffectResult
                 self.effectresult2solr(effect.result, solr_index)
 
     def entry2solr(self, papp: ProtocolApplication):
@@ -84,12 +84,12 @@ class Ambit2Solr:
             _solr["topcategory_s"] = papp.protocol.topcategory
             _solr["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code
             _solr["guidance_s"] = papp.protocol.guideline
-            #_solr["guidance_synonym_ss"] = ["FIX_0000058"]
-            #_solr["E.method_synonym_ss"] = ["FIX_0000058"]
+            # _solr["guidance_synonym_ss"] = ["FIX_0000058"]
+            # _solr["E.method_synonym_ss"] = ["FIX_0000058"]
             _solr["endpoint_s"] = papp.protocol.endpoint
             _solr["effectendpoint_s"] = effect.endpoint
             _solr["effectendpoint_type_s"] = effect.endpointtype
-            #_solr["effectendpoint_synonym_ss"] = ["CHMO_0000823"]
+            # _solr["effectendpoint_synonym_ss"] = ["CHMO_0000823"]
             _solr["reference_owner_s"] = papp.citation.owner
             _solr["reference_year_s"] = papp.citation.year
             _solr["reference_s"] = papp.citation.title
@@ -102,7 +102,7 @@ class Ambit2Solr:
             _conditions["topcategory_s"] = papp.protocol.topcategory
             _conditions["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code
             _conditions["document_uuid_s"] = papp.uuid
-            _conditions["id"] =  "{}/cn".format(_solr["id"])
+            _conditions["id"] = "{}/cn".format(_solr["id"])
             for prm in effect.conditions:
                 self.prm2solr(_conditions, prm, effect.conditions[prm])
             _solr["_childDocuments_"] = [_conditions]
@@ -153,7 +153,7 @@ class Ambit2Solr:
     def substances2solr(self, substances: Substances, buffer=None):
         if buffer is None:
             buffer = []
-        for substance in substances.substance:        
+        for substance in substances.substance:
             buffer.append(self.substancerecord2solr(substance))
         return buffer
 

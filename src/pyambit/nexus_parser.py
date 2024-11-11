@@ -68,7 +68,7 @@ class Nexus2Ambit:
                 papp : ProtocolApplication = self.parse_entry(entry, relative_path)
                 if papp.owner.substance.uuid in self.substances:
                     self.substances[papp.owner.substance.uuid].study.append(papp)
-    
+
     def parse(self, nxroot : nx.NXroot, relative_path : str):
         for entry_name, entry in nxroot.items():
             if entry_name == "substance":
@@ -101,7 +101,7 @@ class Nexus2Ambit:
                 protocol = protocol = Protocol("P-CHEM", "UNKNOWN", "", ["UNKNOWN"])
 
         _reference = nxentry.get("reference")
-        citation = Citation(year=_reference["year"].nxdata, title=_reference["title"].nxdata, 
+        citation = Citation(year=_reference["year"].nxdata, title=_reference["title"].nxdata,
                             owner=_reference["owner"].nxdata)
 
         try:
@@ -156,9 +156,9 @@ class Nexus2Ambit:
             elif isinstance(enddpointtype_group, nx.NXcollection):
                 continue
             elif isinstance(enddpointtype_group, nx.NXenvironment):
-                continue         
+                continue
             elif isinstance(enddpointtype_group, nx.NXnote):
-                continue                        
+                continue
             elif isinstance(enddpointtype_group, nx.NXgroup):
                 pass
             elif isinstance(enddpointtype_group, nx.NXprocess):
@@ -168,7 +168,7 @@ class Nexus2Ambit:
             for _name_data, data in enddpointtype_group.items():
                 if isinstance(data, nx.NXdata):
                     if self.index_only:
-                        papp.effects.append(self.parse_effect(endpointtype_name, data, relative_path))    
+                        papp.effects.append(self.parse_effect(endpointtype_name, data, relative_path))
                     else:
                         raise NotImplementedError("Not implemented")
 
@@ -190,4 +190,4 @@ class Nexus2Ambit:
                     sampleID=None
             )
         else:
-            raise NotImplementedError("Not implemented")            
+            raise NotImplementedError("Not implemented")

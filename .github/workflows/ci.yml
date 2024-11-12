@@ -86,6 +86,7 @@ jobs:
       - name: Store the coverage report
         uses: actions/upload-artifact@v4.3.6
         with:
+          include-hidden-files: true
           name: coverage-${{ matrix.python-version }}
           path: .coverage.${{ matrix.python-version }}
 

@@ -45,7 +45,13 @@ def test_metavaluearray_roundtrip():
     """
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
-    val = mb.MetaValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0 ,conditions={"test" : "test"})
+    val = mb.MetaValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        conditions={"test": "test"},
+    )
 
     data = json.loads(val.model_dump_json())
     # print(data)
@@ -60,7 +66,13 @@ def test_valuearray_roundtrip():
     """
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
-    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0, conditions={"test" : "test"})
+    val = mb.ValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        conditions={"test": "test"},
+    )
 
     assert val.conditions is not None
     data = json.loads(val.model_dump_json())
@@ -130,7 +142,7 @@ def test_valuearray_roundtrip_with_arrayaux():
         unit="unit",
         errQualifier="SD",
         errorValue=a0,
-        auxiliary={"upValue": a1, "array" : aux},
+        auxiliary={"upValue": a1, "array": aux},
     )
 
     data = json.loads(val.model_dump_json())
@@ -273,7 +285,8 @@ def test_effect_array_roundtrip():
 
 def test_protocol_effect_record_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ProtocolEffectRecord model.
+    Test the roundtrip serialization and deserialization of the ProtocolEffectRecord
+    model.
     """
     protocol = mb.Protocol(
         topcategory="TOX",
@@ -442,7 +455,8 @@ def create_effectrecord():
 
 def test_protocol_application_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ProtocolApplication model.
+    Test the roundtrip serialization and deserialization of the ProtocolApplication
+    model.
     """
     original = create_protocolapp4test()
 
@@ -482,7 +496,8 @@ def test_study_roundtrip():
 
 def test_component_proportion_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ComponentProportion model.
+    Test the roundtrip serialization and deserialization of the ComponentProportion
+    model.
     """
     typical = mb.TypicalProportion(precision="<", value=5.0, unit="g")
 
@@ -584,7 +599,7 @@ def test_composition_roundtrip():
 
     see how features are expected
     https://apps.ideaconsult.net/gracious/compound/3?media=application/json&feature_uris=https://apps.ideaconsult.net/gracious/compound/3/feature
-    """
+    """  # noqa: B950
     # Create sample data for Composition
     original = mb.Composition(
         composition=[

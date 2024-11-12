@@ -4,7 +4,7 @@ import uuid
 
 import nexusformat.nexus.tree as nx
 import numpy as np
-from pyambit.ambit_deco import add_ambitmodel_method
+from pyambit.ambit_deco import add_ambitmodel_method  # noqa: F401
 from pyambit.datamodel import SubstanceRecord, Substances
 from pyambit.nexus_spectra import spe2ambit
 

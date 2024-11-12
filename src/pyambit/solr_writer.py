@@ -1,12 +1,10 @@
-
-from typing import Dict, Union
 import json
-
+from typing import Dict, Union
 
 from pyambit.datamodel import (
+    EffectArray,
     EffectRecord,
     EffectResult,
-    EffectArray,
     ProtocolApplication,
     SubstanceRecord,
     Substances,
@@ -16,7 +14,7 @@ from pyambit.datamodel import (
 
 class Ambit2Solr:
 
-    def __init__(self, prefix : str):
+    def __init__(self, prefix: str):
         self.prefix = prefix
 
     def __enter__(self):
@@ -27,7 +25,7 @@ class Ambit2Solr:
         # Any cleanup code, if needed
         pass
 
-    def prm2solr(self, params : Dict, key : str, value : Union[str, Value, None]):
+    def prm2solr(self, params: Dict, key: str, value: Union[str, Value, None]):
         if isinstance(value, str):
             params["{}_s".format(key)] = value
         elif isinstance(value, int):
@@ -82,7 +80,11 @@ class Ambit2Solr:
             _solr["document_uuid_s"] = papp.uuid
 
             _solr["topcategory_s"] = papp.protocol.topcategory
-            _solr["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code
+            _solr["endpointcategory_s"] = (
+                "UNKNOWN"
+                if papp.protocol.category is None
+                else papp.protocol.category.code
+            )
             _solr["guidance_s"] = papp.protocol.guideline
             # _solr["guidance_synonym_ss"] = ["FIX_0000058"]
             # _solr["E.method_synonym_ss"] = ["FIX_0000058"]
@@ -98,9 +100,13 @@ class Ambit2Solr:
                 _solr["E.method_s"] = papp.parameters["E.method_s"]
             self.effectrecord2solr(effect, _solr)
 
-            _conditions = {"type_s" : "conditions"}
+            _conditions = {"type_s": "conditions"}
             _conditions["topcategory_s"] = papp.protocol.topcategory
-            _conditions["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code
+            _conditions["endpointcategory_s"] = (
+                "UNKNOWN"
+                if papp.protocol.category is None
+                else papp.protocol.category.code
+            )
             _conditions["document_uuid_s"] = papp.uuid
             _conditions["id"] = "{}/cn".format(_solr["id"])
             for prm in effect.conditions:
@@ -113,7 +119,11 @@ class Ambit2Solr:
             _params["document_uuid_s"] = papp.uuid
             _params["id"] = "{}/prm".format(papp.uuid)
             _params["topcategory_s"] = papp.protocol.topcategory
-            _params["endpointcategory_s"] = "UNKNOWN" if papp.protocol.category is None else papp.protocol.category.code
+            _params["endpointcategory_s"] = (
+                "UNKNOWN"
+                if papp.protocol.category is None
+                else papp.protocol.category.code
+            )
             if "E.method_s" in papp.parameters:
                 _params["E.method_s"] = papp.parameters["E.method_s"]
             _params["type_s"] = "params"
@@ -162,5 +172,5 @@ class Ambit2Solr:
 
     def write(self, substances, file_path):
         _json = self.to_json(substances)
-        with open(file_path, 'w') as file:
+        with open(file_path, "w") as file:
             json.dump(_json, file)

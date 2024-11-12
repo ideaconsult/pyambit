@@ -20,7 +20,7 @@ from pydantic import (
     model_validator,
 )
 
-from pyambit.ambit_deco import add_ambitmodel_method
+from pyambit.ambit_deco import add_ambitmodel_method  # noqa: F401
 
 
 class AmbitModel(BaseModel):
@@ -83,7 +83,14 @@ class Protocol(AmbitModel):
         return super().model_construct(**data)
 
     def __repr__(self):
-        return f"Protocol(topcategory={self.topcategory!r}, category={self.category!r}, endpoint={self.endpoint!r}, guideline={self.guideline!r})"
+        return (
+            "Protocol("
+            f"topcategory={self.topcategory!r}, "
+            f"category={self.category!r}, "
+            f"endpoint={self.endpoint!r}, "
+            f"guideline={self.guideline!r}"
+            ")"
+        )
 
     def __eq__(self, other):
         if not isinstance(other, Protocol):
@@ -157,13 +164,10 @@ class BaseValueArray(AmbitModel):
         values: npt.NDArray = None,
         unit: str = None,
         errorValue: npt.NDArray = None,
-        errQualifier: str = None
+        errQualifier: str = None,
     ):
         return cls(
-            values=values,
-            unit=unit,
-            errorValue=errorValue,
-            errQualifier=errQualifier
+            values=values, unit=unit, errorValue=errorValue, errQualifier=errQualifier
         )
 
     @classmethod
@@ -178,7 +182,9 @@ class BaseValueArray(AmbitModel):
         errQualifier = data.get("errQualifier")
         errorValue = deserialize(data.get("errorValue"))
 
-        return cls(values=values, unit=unit, errQualifier=errQualifier, errorValue=errorValue)
+        return cls(
+            values=values, unit=unit, errQualifier=errQualifier, errorValue=errorValue
+        )
 
     def model_dump_json(self, **kwargs) -> str:
         def serialize(obj):
@@ -212,14 +218,14 @@ class MetaValueArray(BaseValueArray):
         unit: str = None,
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
-        conditions: Optional[Dict[str, str]] = None
+        conditions: Optional[Dict[str, str]] = None,
     ):
         return cls(
             values=values,
             unit=unit,
             errorValue=errorValue,
             errQualifier=errQualifier,
-            conditions=conditions
+            conditions=conditions,
         )
 
     @classmethod
@@ -231,7 +237,7 @@ class MetaValueArray(BaseValueArray):
             unit=base_instance.unit,
             errorValue=base_instance.errorValue,
             errQualifier=base_instance.errQualifier,
-            conditions=conditions
+            conditions=conditions,
         )
 
     def model_dump_json(self, **kwargs) -> str:
@@ -246,14 +252,11 @@ class MetaValueArray(BaseValueArray):
     def __eq__(self, other):
         if not isinstance(other, MetaValueArray):
             return False
-        return (
-            super().__eq__(other)
-            and self.conditions == other.conditions
-        )
+        return super().__eq__(other) and self.conditions == other.conditions
 
 
 class ValueArray(MetaValueArray):
-    auxiliary: Optional[Dict[str, Union[npt.NDArray, 'MetaValueArray']]] = None
+    auxiliary: Optional[Dict[str, Union[npt.NDArray, "MetaValueArray"]]] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
@@ -264,7 +267,7 @@ class ValueArray(MetaValueArray):
         errorValue: npt.NDArray = None,
         errQualifier: str = None,
         conditions: Optional[Dict[str, str]] = None,
-        auxiliary: Dict[str, Union[npt.NDArray, 'MetaValueArray']] = None,
+        auxiliary: Dict[str, Union[npt.NDArray, "MetaValueArray"]] = None,
     ):
         return cls(
             values=values,
@@ -289,7 +292,9 @@ class ValueArray(MetaValueArray):
         if auxiliary_data is not None:
             auxiliary = {}
             for key, value in auxiliary_data.items():
-                if isinstance(value, dict):  # Check if it's a dictionary representing a MetaValueArray
+                if isinstance(
+                    value, dict
+                ):  # Check if it's a dictionary representing a MetaValueArray
                     auxiliary[key] = MetaValueArray.model_construct(**value)
                 else:
                     auxiliary[key] = deserialize(value)
@@ -302,22 +307,18 @@ class ValueArray(MetaValueArray):
             errQualifier=base_instance.errQualifier,
             errorValue=base_instance.errorValue,
             conditions=base_instance.conditions,
-            auxiliary=auxiliary
+            auxiliary=auxiliary,
         )
 
     def model_dump(self):
         base_dict = super().model_dump()
-        return {
-            **base_dict,
-            "auxiliary": self.auxiliary
-        }
+        return {**base_dict, "auxiliary": self.auxiliary}
 
     def __eq__(self, other):
         if not isinstance(other, ValueArray):
             return False
-        return (
-            super().__eq__(other)
-            and self.compare_auxiliary(self.auxiliary, other.auxiliary)
+        return super().__eq__(other) and self.compare_auxiliary(
+            self.auxiliary, other.auxiliary
         )
 
     @staticmethod
@@ -473,10 +474,16 @@ class EffectRecord(AmbitModel):
 
     def __repr__(self):
         return (
-            f"EffectRecord(endpoint={self.endpoint!r}, endpointtype={self.endpointtype!r}, "
-            f"result={self.result!r}, conditions={self.conditions!r}, "
-            f"idresult={self.idresult!r}, endpointGroup={self.endpointGroup!r}, "
-            f"endpointSynonyms={self.endpointSynonyms!r}, sampleID={self.sampleID!r})"
+            "EffectRecord("
+            f"endpoint={self.endpoint!r}, "
+            f"endpointtype={self.endpointtype!r}, "
+            f"result={self.result!r}, "
+            f"conditions={self.conditions!r}, "
+            f"idresult={self.idresult!r}, "
+            f"endpointGroup={self.endpointGroup!r}, "
+            f"endpointSynonyms={self.endpointSynonyms!r}, "
+            f"sampleID={self.sampleID!r}"
+            ")"
         )
 
 
@@ -532,20 +539,23 @@ class EffectArray(EffectRecord):
                     isinstance(a, str) for a in alternatives
                 ):
                     raise ValueError(
-                        f"Alternative axes for '{primary_axis}' should be a list of strings."
+                        f"Alternative axes for '{primary_axis}' should be a list of "
+                        "strings."
                     )
 
                 # Ensure all alternative axes are present in 'axes'
                 if primary_axis not in data["axes"]:
                     raise ValueError(
-                        f"Primary axis '{primary_axis}' in axis_groups must be a key in axes."
+                        f"Primary axis '{primary_axis}' in axis_groups must be a key "
+                        "in axes."
                     )
 
                 # Validate that each alternative axis exists in 'axes'
                 for alt_axis in alternatives:
                     if alt_axis not in data["axes"]:
                         raise ValueError(
-                            f"Alternative axis '{alt_axis}' in axis_groups must be a key in axes."
+                            f"Alternative axis '{alt_axis}' in axis_groups must be a "
+                            "key in axes."
                         )
 
                 new_axis_groups[primary_axis] = alternatives
@@ -570,9 +580,14 @@ class EffectArray(EffectRecord):
         repr_axes = repr(self.axes) if self.axes else "None"
         repr_axis_groups = repr(self.axis_groups) if self.axis_groups else "None"
         return (
-            f"EffectArray(endpoint={self.endpoint}, endpointtype={repr_endpointtype}, "
-            f"signal={repr_signal}, axes={repr_axes}, "
-            f"axis_groups={repr_axis_groups}, {super().__repr__()})"
+            "EffectArray("
+            f"endpoint={self.endpoint}, "
+            f"endpointtype={repr_endpointtype}, "
+            f"signal={repr_signal}, "
+            f"axes={repr_axes}, "
+            f"axis_groups={repr_axis_groups}, "
+            f"{super().__repr__()}"
+            ")"
         )
 
 
@@ -609,9 +624,13 @@ class ProtocolEffectRecord(EffectRecord):
 
     def __repr__(self):
         return (
-            f"ProtocolEffectRecord(protocol={self.protocol}, documentUUID={self.documentUUID}, "
-            f"studyResultType={self.studyResultType}, interpretationResult={self.interpretationResult}, "
-            f"{super().__repr__()})"
+            "ProtocolEffectRecord("
+            f"protocol={self.protocol}, "
+            f"documentUUID={self.documentUUID}, "
+            f"studyResultType={self.studyResultType}, "
+            f"interpretationResult={self.interpretationResult}, "
+            f"{super().__repr__()}"
+            ")"
         )
 
 
@@ -651,12 +670,14 @@ class ReliabilityParams(AmbitModel):
 
     def __repr__(self):
         return (
-            f"ReliabilityParams(r_isRobustStudy={self.r_isRobustStudy}, "
+            "ReliabilityParams("
+            f"r_isRobustStudy={self.r_isRobustStudy}, "
             f"r_isUsedforClassification={self.r_isUsedforClassification}, "
             f"r_isUsedforMSDS={self.r_isUsedforMSDS}, "
             f"r_purposeFlag={self.r_purposeFlag}, "
             f"r_studyResultType={self.r_studyResultType}, "
-            f"r_value={self.r_value})"
+            f"r_value={self.r_value}"
+            ")"
         )
 
 
@@ -679,7 +700,13 @@ class Citation(AmbitModel):
         )
 
     def __repr__(self):
-        return f"Citation(year={self.year}, title={self.title}, " f"owner={self.owner})"
+        return (
+            "Citation("
+            f"year={self.year}, "
+            f"title={self.title}, "
+            f"owner={self.owner}"
+            ")"
+        )
 
 
 Citation = create_model("Citation", __base__=Citation)
@@ -872,13 +899,19 @@ class ProtocolApplication(AmbitModel):
 
     def __repr__(self):
         return (
-            f"ProtocolApplication(uuid={self.uuid!r}, "
+            "ProtocolApplication("
+            f"uuid={self.uuid!r}, "
             f"interpretationResult={self.interpretationResult!r}, "
             f"interpretationCriteria={self.interpretationCriteria!r}, "
-            f"parameters={self.parameters!r}, citation={self.citation!r}, "
-            f"effects={self.effects!r}, owner={self.owner!r}, "
-            f"protocol={self.protocol!r}, investigation_uuid={self.investigation_uuid!r}, "
-            f"assay_uuid={self.assay_uuid!r}, updated={self.updated!r})"
+            f"parameters={self.parameters!r}, "
+            f"citation={self.citation!r}, "
+            f"effects={self.effects!r}, "
+            f"owner={self.owner!r}, "
+            f"protocol={self.protocol!r}, "
+            f"investigation_uuid={self.investigation_uuid!r}, "
+            f"assay_uuid={self.assay_uuid!r}, "
+            f"updated={self.updated!r}"
+            ")"
         )
 
     def create_multidimensional_matrix(
@@ -961,10 +994,10 @@ class ProtocolApplication(AmbitModel):
                     for a in auxsignal_cols:
                         if not pd.isna(row[a]):
                             if isinstance(row[a], bytes):
-                                auxsignals[a][indices] = row[a].decode('utf-8')
+                                auxsignals[a][indices] = row[a].decode("utf-8")
                             else:
                                 auxsignals[a][indices] = row[a]
-            except:
+            except:  # noqa: B001,E722 FIXME
                 # print("matrix", self.uuid)
                 # print(row)
                 print(axis_indices)
@@ -975,7 +1008,8 @@ class ProtocolApplication(AmbitModel):
             unique_values = sorted(df[axis].unique())
             axes[axis].values = unique_values
 
-        # Collect alternative axis values - tbd - sorting may change order of alternative axes!
+        # Collect alternative axis values - tbd - sorting may change order of
+        # alternative axes!
         if alt_axes is not None:
             for _primary_axis, alt_cols in alt_axes.items():
                 for alt_col in alt_cols:
@@ -1063,7 +1097,9 @@ class ProtocolApplication(AmbitModel):
                                     try:
                                         _f["loValue"] = _f["loValue"].fillna(_tmp[_col])
                                     except Exception as x:
-                                        # print(_f['loValue'].apply(type).value_counts())
+                                        # print(
+                                        #     _f['loValue'].apply(type).value_counts()
+                                        # )
                                         print(x)
                                         print(_col, _f["loValue"], self.uuid)
 
@@ -1084,20 +1120,20 @@ class ProtocolApplication(AmbitModel):
                             if _tmp["loValue"].dropna().empty
                             else transform_array(_tmp["loValue"].values)
                         )
-                        _loQualifier = (
-                            None
-                            if _tmp["loQualifier"].dropna().empty
-                            else transform_array(_tmp["loQualifier"].values)
-                        )
-                        _upQualifier = (
-                            None
-                            if _tmp["upQualifier"].dropna().empty
-                            else transform_array(_tmp["upQualifier"].values)
-                        )
+                        # _loQualifier = (
+                        #     None
+                        #     if _tmp["loQualifier"].dropna().empty
+                        #     else transform_array(_tmp["loQualifier"].values)
+                        # )
+                        # _upQualifier = (
+                        #     None
+                        #     if _tmp["upQualifier"].dropna().empty
+                        #     else transform_array(_tmp["upQualifier"].values)
+                        # )
 
-                        errqualifier = _tmp["errQualifier"].unique()[
-                            0
-                        ]  # if _tmp["errQualifier"].nunique() == 1 else _tmp["errQualifier"]
+                        errqualifier = _tmp["errQualifier"].unique()[0]
+                        # if _tmp["errQualifier"].nunique() == 1
+                        # else _tmp["errQualifier"]
 
                         # df_axes["loValue"] = loValues
                         auxsignal_cols = []
@@ -1119,9 +1155,13 @@ class ProtocolApplication(AmbitModel):
                             # for some reason there are still nan values
                             axes_all = []
                             nan_columns = df_axes.columns[df_axes.isna().any()].tolist()
-                            df_axes_nan = df_axes[df_axes[nan_columns].isna().any(axis=1)]
+                            df_axes_nan = df_axes[
+                                df_axes[nan_columns].isna().any(axis=1)
+                            ]
                             df_axes_nan = df_axes_nan.dropna(axis=1, how="all")
-                            df_axes_not_nan = df_axes[df_axes[nan_columns].notna().all(axis=1)]
+                            df_axes_not_nan = df_axes[
+                                df_axes[nan_columns].notna().all(axis=1)
+                            ]
                             if not df_axes_not_nan.empty:
                                 axes_all.append(df_axes_not_nan)
                                 # print(print(df_axes_not_nan))
@@ -1131,7 +1171,7 @@ class ProtocolApplication(AmbitModel):
                                 print(df_axes_nan)
                         else:
                             axes_all = [df_axes]
-                            
+
                         for df_axes in axes_all:
                             if _tmp["errorValue"].dropna().empty:
                                 error_col = None
@@ -1150,7 +1190,12 @@ class ProtocolApplication(AmbitModel):
                                 )
                             )
                             # Remove items where the value is None or NaN
-                            new_conditions = {k: v for k, v in new_conditions.items() if v is not None and not (isinstance(v, float) and np.isnan(v))}
+                            new_conditions = {
+                                k: v
+                                for k, v in new_conditions.items()
+                                if v is not None
+                                and not (isinstance(v, float) and np.isnan(v))
+                            }
 
                             earray = EffectArray(
                                 endpoint=endpoint,
@@ -1158,7 +1203,8 @@ class ProtocolApplication(AmbitModel):
                                 conditions=new_conditions,
                                 signal=ValueArray(
                                     unit=unit,
-                                    # values=textValue if loValues is None else loValues,
+                                    # values=textValue if loValues is None
+                                    # else loValues,
                                     values=matrix,
                                     errQualifier=errqualifier,
                                     errorValue=matrix_errors,
@@ -1190,7 +1236,7 @@ class Study(AmbitModel):
         papps = Study(**parsed_json)
         for papp in papps:
             print(papp)
-    """
+    """  # noqa: B950
 
     study: List[ProtocolApplication]
 
@@ -1305,9 +1351,17 @@ class Compound(AmbitModel):
 
     def __repr__(self) -> str:
         return (
-            f"Compound(URI={self.URI}, structype={self.structype}, metric={self.metric}, "
-            f"name={self.name}, cas={self.cas}, einecs={self.einecs}, "
-            f"inchikey={self.inchikey}, inchi={self.inchi}, formula={self.formula})"
+            "Compound("
+            f"URI={self.URI}, "
+            f"structype={self.structype}, "
+            f"metric={self.metric}, "
+            f"name={self.name}, "
+            f"cas={self.cas}, "
+            f"einecs={self.einecs}, "
+            f"inchikey={self.inchikey}, "
+            f"inchi={self.inchi}, "
+            f"formula={self.formula}"
+            ")"
         )
 
 
@@ -1498,10 +1552,19 @@ class SubstanceRecord(AmbitModel):
 
     def __repr__(self):
         return (
-            f"SubstanceRecord(URI={self.URI}, ownerUUID={self.ownerUUID}, ownerName={self.ownerName}, "
-            f"i5uuid={self.i5uuid}, name={self.name}, publicname={self.publicname}, format={self.format}, "
-            f"substanceType={self.substanceType}, referenceSubstance={self.referenceSubstance}, "
-            f"study={self.study}, composition={self.composition})"
+            "SubstanceRecord("
+            f"URI={self.URI}, "
+            f"ownerUUID={self.ownerUUID}, "
+            f"ownerName={self.ownerName}, "
+            f"i5uuid={self.i5uuid}, "
+            f"name={self.name}, "
+            f"publicname={self.publicname}, "
+            f"format={self.format}, "
+            f"substanceType={self.substanceType}, "
+            f"referenceSubstance={self.referenceSubstance}, "
+            f"study={self.study}, "
+            f"composition={self.composition}"
+            ")"
         )
 
 
@@ -1592,7 +1655,7 @@ def transform_array(arr):
     if any_strings:
         try:
             return pd.to_numeric(arr, errors="raise")
-        except Exception as e:
+        except Exception:
             _converted = np.array(
                 [
                     (
@@ -1669,7 +1732,8 @@ def find_string_only_columns(df):
         # Check if all values in the series are either strings or NaN
         return series.apply(lambda x: isinstance(x, str) or pd.isna(x)).all()
 
-    # Use list comprehension to check if each column is string only and cannot be converted to numeric
+    # Use list comprehension to check if each column is string only and cannot be
+    # converted to numeric.
     string_only_cols = [
         col
         for col in object_cols
@@ -1710,8 +1774,12 @@ def split_df_by_columns(df, columns):
 
     for _, row in unique_combinations.iterrows():
         # Create a filter condition that treats NaN as equal
-        filter_condition = pd.DataFrame({col: (df[col] == row[col]) | (pd.isna(df[col]) & pd.isna(row[col]))
-                                         for col in columns}).all(axis=1)
+        filter_condition = pd.DataFrame(
+            {
+                col: (df[col] == row[col]) | (pd.isna(df[col]) & pd.isna(row[col]))
+                for col in columns
+            }
+        ).all(axis=1)
 
         # Create a new DataFrame for this combination
         split_df = df[filter_condition]

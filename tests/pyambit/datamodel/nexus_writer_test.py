@@ -7,7 +7,7 @@ import nexusformat.nexus.tree as nx
 import pytest
 
 # to_nexus is not added without this import
-from pyambit import nexus_writer
+from pyambit import nexus_writer  # noqa: F401
 from pyambit.datamodel import Study, Substances
 
 
@@ -35,10 +35,12 @@ def inspect_nexus_tree(node, path="root"):
     if isinstance(node, dict):  # If the node is a group/dictionary
         for key, child in node.items():
             inspect_nexus_tree(child, path + f"/{key}")
-    elif hasattr(node, 'dtype'):
+    elif hasattr(node, "dtype"):
         # Check if dtype is Unicode
-        if node.dtype.char == 'U':
-            print(f"*****Problematic Unicode data found at {path} with dtype {node.dtype}")
+        if node.dtype.char == "U":
+            print(
+                f"*****Problematic Unicode data found at {path} with dtype {node.dtype}"
+            )
     # else:
     #    print(f"Skipping non-data node at {path}")
 
@@ -67,7 +69,7 @@ def test_study(substances):
                 study.to_nexus(nxroot, hierarchy=True)
                 inspect_nexus_tree(nxroot)
                 nxroot.save(file, mode="w")
-            except Exception as err:           
+            except Exception as err:
                 # inspect_nexus_tree(nxroot)
                 # print(study.model_dump_json(exclude_none=True))
                 effectarrays_only, df = study.convert_effectrecords2array()
@@ -75,9 +77,6 @@ def test_study(substances):
                 for effect in effectarrays_only:
                     for key in effect.signal.auxiliary:
                         for element in effect.signal.auxiliary[key].flat:
-                            print(element, end='.')
+                            print(element, end=".")
                 # print(nxroot.tree)
                 raise err
-
-    
-            

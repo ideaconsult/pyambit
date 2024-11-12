@@ -4,9 +4,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pyambit.datamodel import Study, Substances
 
 from pyambit.solr_writer import Ambit2Solr
-from pyambit.datamodel import Study, Substances
 
 
 TEST_DIR = Path(__file__).parent.parent / "resources"
@@ -36,5 +36,5 @@ def test_substances(substances):
     _json = writer.to_json(_substances)
     _file = os.path.join(tempfile.gettempdir(), "substances.json")
     print(_file)
-    with open(_file, 'w') as file:
+    with open(_file, "w") as file:
         json.dump(_json, file)

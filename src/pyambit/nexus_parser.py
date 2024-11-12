@@ -1,26 +1,26 @@
-
-import nexusformat.nexus as nx
+import traceback
 from typing import Dict
 
+import nexusformat.nexus as nx
+
 from pyambit.datamodel import (
-    Protocol,
-    ProtocolApplication,
     Citation,
-    SubstanceRecord,
-    Substances,
-    Value,
     EffectRecord,
     EffectResult,
     EndpointCategory,
-    SampleLink
+    Protocol,
+    ProtocolApplication,
+    SampleLink,
+    SubstanceRecord,
+    Substances,
+    Value,
 )
-import traceback
 
 
 class Nexus2Ambit:
 
-    def __init__(self, domain : str, index_only : True):
-        self.substances : Dict[str, SubstanceRecord] = {}
+    def __init__(self, domain: str, index_only: True):
+        self.substances: Dict[str, SubstanceRecord] = {}
         self.domain = domain
         self.index_only = index_only
 
@@ -35,7 +35,7 @@ class Nexus2Ambit:
     def clear(self):
         self.substances = {}
 
-    def substance_from_nexus(self, nxentry : nx.NXentry) -> SubstanceRecord:
+    def substance_from_nexus(self, nxentry: nx.NXentry) -> SubstanceRecord:
         try:
             record = SubstanceRecord(
                 URI=None,
@@ -55,21 +55,21 @@ class Nexus2Ambit:
             print(traceback.format_exc())
             raise err
 
-    def parse_substances(self, nxentry : nx.NXentry):
+    def parse_substances(self, nxentry: nx.NXentry):
         for _entry_name, entry in nxentry.items():
             if isinstance(entry, nx.NXsample):
                 record: SubstanceRecord = self.substance_from_nexus(entry)
                 if record.i5uuid not in self.substances:
                     self.substances[record.i5uuid] = record
 
-    def parse_studies(self, nxroot : nx.NXroot, relative_path : str):
+    def parse_studies(self, nxroot: nx.NXroot, relative_path: str):
         for entry_name, entry in nxroot.items():
             if entry_name != "substance":
-                papp : ProtocolApplication = self.parse_entry(entry, relative_path)
+                papp: ProtocolApplication = self.parse_entry(entry, relative_path)
                 if papp.owner.substance.uuid in self.substances:
                     self.substances[papp.owner.substance.uuid].study.append(papp)
 
-    def parse(self, nxroot : nx.NXroot, relative_path : str):
+    def parse(self, nxroot: nx.NXroot, relative_path: str):
         for entry_name, entry in nxroot.items():
             if entry_name == "substance":
                 self.parse_substances(entry)
@@ -78,7 +78,9 @@ class Nexus2Ambit:
     def get_substances(self):
         return Substances(substance=self.substances.values())
 
-    def parse_entry(self, nxentry : nx.NXentry, relative_path : str) -> ProtocolApplication:
+    def parse_entry(
+        self, nxentry: nx.NXentry, relative_path: str
+    ) -> ProtocolApplication:
         dox = nxentry.get("experiment_documentation", None)
         protocol = None
         parameters = {}
@@ -90,44 +92,57 @@ class Nexus2Ambit:
                 protocol = Protocol(
                     topcategory=_protocol.attrs["topcategory"],
                     category=EndpointCategory(code=_protocol.attrs["code"]),
-                    endpoint=_protocol.attrs["endpoint"] if "endpoint" in _protocol.attrs else None,
-                    guideline=[_protocol.attrs["guideline"]]
+                    endpoint=(
+                        _protocol.attrs["endpoint"]
+                        if "endpoint" in _protocol.attrs
+                        else None
+                    ),
+                    guideline=[_protocol.attrs["guideline"]],
                 )
         if protocol is None:
             if nxentry["definition"].nxvalue == "NXraman":
-                protocol = protocol = Protocol("P-CHEM", "ANALYTICAL_METHODS_SECTION", "", ["Raman spectroscopy"])
+                protocol = protocol = Protocol(
+                    "P-CHEM", "ANALYTICAL_METHODS_SECTION", "", ["Raman spectroscopy"]
+                )
                 parameters["E.method"] = nxentry["definition"].nxvalue
             else:
                 protocol = protocol = Protocol("P-CHEM", "UNKNOWN", "", ["UNKNOWN"])
 
         _reference = nxentry.get("reference")
-        citation = Citation(year=_reference["year"].nxdata, title=_reference["title"].nxdata,
-                            owner=_reference["owner"].nxdata)
+        citation = Citation(
+            year=_reference["year"].nxdata,
+            title=_reference["title"].nxdata,
+            owner=_reference["owner"].nxdata,
+        )
 
         try:
             wl = nxentry["instrument/beam_incident/wavelength"].nxdata
             wl_unit = nxentry["instrument/beam_incident/wavelength"].attrs["unit"]
             parameters["wavelength"] = Value(loValue=wl, unit=wl_unit)
-        except:
+        except:  # noqa: B001,E722 FIXME
             parameters["wavelength"] = None
 
         try:
             instrument_model = nxentry["instrument/device_information/model"].nxvalue
             instrument_vendor = nxentry["instrument/device_information/vendor"].nxvalue
-            parameters["instrument"] = "{} {}".format(instrument_vendor, instrument_model)
-        except:
+            parameters["instrument"] = "{} {}".format(
+                instrument_vendor, instrument_model
+            )
+        except:  # noqa: B001,E722 FIXME
             pass
 
         try:
-            parameters["E.method"] = nxentry["experiment_documentation/E.method"].nxvalue
-        except Exception as err:
+            parameters["E.method"] = nxentry[
+                "experiment_documentation/E.method"
+            ].nxvalue
+        except Exception:
             parameters["E.method"] = nxentry["definition"].nxvalue
 
         # the sample
         try:
             _owner = SampleLink.create(
                 sample_uuid=nxentry["sample/substance"].attrs["uuid"],
-                sample_provider=nxentry["sample/provider"].nxdata
+                sample_provider=nxentry["sample/provider"].nxdata,
             )
         except Exception as err:
             raise ValueError(err)
@@ -143,7 +158,7 @@ class Nexus2Ambit:
             protocol=protocol,
             investigation_uuid=nxentry.get("collection_identifier").nxvalue,
             assay_uuid=nxentry.get("experiment_identifier").nxvalue,
-            updated=None
+            updated=None,
         )
         for endpointtype_name, enddpointtype_group in nxentry.items():
 
@@ -168,26 +183,29 @@ class Nexus2Ambit:
             for _name_data, data in enddpointtype_group.items():
                 if isinstance(data, nx.NXdata):
                     if self.index_only:
-                        papp.effects.append(self.parse_effect(endpointtype_name, data, relative_path))
+                        papp.effects.append(
+                            self.parse_effect(endpointtype_name, data, relative_path)
+                        )
                     else:
                         raise NotImplementedError("Not implemented")
 
         return papp
 
-    def parse_effect(self, endpointtype_name, data : nx.NXentry, relative_path : str) -> EffectRecord:
+    def parse_effect(
+        self, endpointtype_name, data: nx.NXentry, relative_path: str
+    ) -> EffectRecord:
         if self.index_only:
             return EffectRecord(
-                    endpoint=data.attrs["signal"],
-                    endpointtype=endpointtype_name,
-                    result=EffectResult(
-                        textValue="{}/{}#{}".format(self.domain, relative_path, data.nxpath)
-                    ),
-                    conditions={
-                                },
-                    idresult=None,
-                    endpointGroup=None,
-                    endpointSynonyms=[],
-                    sampleID=None
+                endpoint=data.attrs["signal"],
+                endpointtype=endpointtype_name,
+                result=EffectResult(
+                    textValue="{}/{}#{}".format(self.domain, relative_path, data.nxpath)
+                ),
+                conditions={},
+                idresult=None,
+                endpointGroup=None,
+                endpointSynonyms=[],
+                sampleID=None,
             )
         else:
             raise NotImplementedError("Not implemented")

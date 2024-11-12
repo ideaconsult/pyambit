@@ -7,7 +7,8 @@ import numpy as np
 import numpy.typing as npt
 
 import pyambit.datamodel as mx
-from pyambit.nexus_writer import to_nexus
+
+from pyambit.nexus_writer import to_nexus  # noqa: F401
 
 
 def spe2effect(
@@ -44,7 +45,7 @@ def configure_papp(
     investigation="My investigation",
     citation: mx.Citation = None,
     prefix="TEST",
-    meta: Dict = None
+    meta: Dict = None,
 ):
     if papp is None:
         papp = mx.ProtocolApplication(
@@ -66,11 +67,11 @@ def configure_papp(
     )
     papp.parameters = {
         "/experiment_documentation/E.method": "Raman spectroscopy",
-        "/experiment_type" : "Raman spectroscopy" ,
-        "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength, unit="nm"),
+        "/experiment_type": "Raman spectroscopy",
+        "instrument/beam_incident/wavelength": mx.Value(loValue=wavelength, unit="nm"),
         "instrument/device_information/vendor": instrument[0],
         "instrument/device_information/model": instrument[1],
-        "/definition": "NXraman"
+        "/definition": "NXraman",
     }
     for key in list(meta.keys()):
         if not key.startswith("@"):

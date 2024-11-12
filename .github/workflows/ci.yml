@@ -46,7 +46,7 @@ jobs:
 
       - name: Load the cached Poetry installation
         id: cached-poetry
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.2
         with:
           path: ~/.local
           key: poetry-${{ env.POETRY_VERSION }}-py_${{ env.PYTHON_ID}}-0
@@ -61,7 +61,7 @@ jobs:
 
       - name: Load the cached dependencies
         id: cached-deps
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.2
         with:
           path: .venv
           key: py${{ matrix.python-version }}-deps-${{ hashFiles('**/poetry.lock') }}

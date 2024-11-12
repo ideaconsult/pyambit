@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 import pyambit.datamodel as mb
-from pydantic_core import from_json
+
 
 TEST_DIR = Path(__file__).parent.parent / "resources"
 
@@ -24,14 +24,57 @@ def test_substances_load():
     assert substances == new_val
 
 
+def test_basevaluearray_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.BaseValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0)
+
+    data = json.loads(val.model_dump_json())
+    # print(data)
+    new_val = mb.BaseValueArray.model_construct(**data)
+
+    assert val == new_val
+
+
+def test_metavaluearray_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the MetaValueArray model.
+    """
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.MetaValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        conditions={"test": "test"},
+    )
+
+    data = json.loads(val.model_dump_json())
+    # print(data)
+    new_val = mb.MetaValueArray.model_construct(**data)
+
+    assert val == new_val
+
+
 def test_valuearray_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
     """
     a1: npt.NDArray[np.float64] = np.ones(5)
     a0: npt.NDArray[np.float64] = np.zeros(5)
-    val = mb.ValueArray(values=a1, unit="unit", errQualifier="SD", errorValue=a0)
+    val = mb.ValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        conditions={"test": "test"},
+    )
 
+    assert val.conditions is not None
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
 
@@ -42,7 +85,7 @@ def test_valuearrayaux_roundtrip():
     """
     Test the roundtrip serialization and deserialization of the ValueArray model.
     """
-    shape = tuple((10, 2, 1))
+    shape = tuple((3, 2, 1))
     matrix_vals = np.random.random(shape) * 3
     matrix_errs = np.random.random(shape)
     matrix_upValue = np.random.random(shape) * 5
@@ -58,7 +101,10 @@ def test_valuearrayaux_roundtrip():
 
     data = json.loads(val.model_dump_json())
     new_val = mb.ValueArray.model_construct(**data)
-
+    for key in val.auxiliary:
+        print("old", key, type(val.auxiliary[key]))
+    for key in new_val.auxiliary:
+        print("new", key, type(new_val.auxiliary[key]))
     assert val == new_val
 
 
@@ -74,6 +120,29 @@ def test_valuearray_roundtrip_withaux():
         errQualifier="SD",
         errorValue=a0,
         auxiliary={"upValue": a1},
+    )
+
+    data = json.loads(val.model_dump_json())
+    new_val = mb.ValueArray.model_construct(**data)
+    assert val == new_val
+
+
+def test_valuearray_roundtrip_with_arrayaux():
+    """
+    Test the roundtrip serialization and deserialization of the ValueArray model.
+    """
+
+    b1: npt.NDArray[np.float64] = np.ones(10)
+    aux = mb.MetaValueArray(values=b1, unit="bunit")
+
+    a1: npt.NDArray[np.float64] = np.ones(5)
+    a0: npt.NDArray[np.float64] = np.zeros(5)
+    val = mb.ValueArray(
+        values=a1,
+        unit="unit",
+        errQualifier="SD",
+        errorValue=a0,
+        auxiliary={"upValue": a1, "array": aux},
     )
 
     data = json.loads(val.model_dump_json())
@@ -216,7 +285,8 @@ def test_effect_array_roundtrip():
 
 def test_protocol_effect_record_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ProtocolEffectRecord model.
+    Test the roundtrip serialization and deserialization of the ProtocolEffectRecord
+    model.
     """
     protocol = mb.Protocol(
         topcategory="TOX",
@@ -385,7 +455,8 @@ def create_effectrecord():
 
 def test_protocol_application_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ProtocolApplication model.
+    Test the roundtrip serialization and deserialization of the ProtocolApplication
+    model.
     """
     original = create_protocolapp4test()
 
@@ -425,7 +496,8 @@ def test_study_roundtrip():
 
 def test_component_proportion_roundtrip():
     """
-    Test the roundtrip serialization and deserialization of the ComponentProportion model.
+    Test the roundtrip serialization and deserialization of the ComponentProportion
+    model.
     """
     typical = mb.TypicalProportion(precision="<", value=5.0, unit="g")
 
@@ -527,7 +599,7 @@ def test_composition_roundtrip():
 
     see how features are expected
     https://apps.ideaconsult.net/gracious/compound/3?media=application/json&feature_uris=https://apps.ideaconsult.net/gracious/compound/3/feature
-    """
+    """  # noqa: B950
     # Create sample data for Composition
     original = mb.Composition(
         composition=[

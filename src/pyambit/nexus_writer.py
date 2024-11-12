@@ -1,27 +1,77 @@
 import math
-import numbers
 import re
 import traceback
 from typing import Dict, List
 
 import nexusformat.nexus as nx
 import numpy as np
-import pandas as pd
+
+from h5py import string_dtype
 
 from pyambit.ambit_deco import add_ambitmodel_method
-
-# from pydantic import validate_arguments
 
 from pyambit.datamodel import (
     Composition,
     EffectArray,
-    effects2df,
+    MetaValueArray,
     ProtocolApplication,
     Study,
     SubstanceRecord,
     Substances,
     Value,
+    ValueArray,
 )
+
+# tbd parameterize
+
+
+def param_lookup(prm, value):
+    target = ["environment"]
+    _prmlo = prm.lower()
+    if "instrument" in _prmlo:
+        target = ["instrument"]
+    elif "technique" in _prmlo:
+        target = ["instrument"]
+    elif "wavelength" in _prmlo:
+        target = ["instrument", "beam_incident"]
+    elif "sample" in _prmlo:
+        target = ["sample"]
+    elif "material" in _prmlo:
+        target = ["sample"]
+    elif "dispers" in _prmlo:
+        target = ["sample"]
+    elif "vortex" in _prmlo:
+        target = ["sample"]
+    elif "stirr" in _prmlo:
+        target = ["sample"]
+    elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
+        target = ["experiment_documentation"]
+    elif "E.SOP_REFERENCE" == prm:
+        target = ["experiment_documentation"]
+    elif "OPERATOR" == prm:
+        target = ["experiment_documentation"]
+    elif prm.startswith("T."):
+        target = ["instrument"]
+    elif prm.startswith("E."):
+        target = ["environment"]
+    elif "medium" in _prmlo:
+        target = ["environment"]
+    elif "cell" in _prmlo:
+        target = ["environment"]
+    elif "well" in _prmlo:
+        target = ["environment"]
+    elif "animal" in _prmlo:
+        target = ["environment"]
+    elif "EXPERIMENT_END_DATE" == prm:
+        target = ["end_time"]
+    elif "EXPERIMENT_START_DATE" == prm:
+        target = ["start_time"]
+    elif "__input_file" == prm:
+        target = ["experiment_documentation"]
+    else:
+        target = ["parameters"]
+    target.append(prm)
+    return target
 
 
 @add_ambitmodel_method(ProtocolApplication)
@@ -56,9 +106,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     try:
         _categories_collection = ""
         if hierarchy:
-            if not papp.protocol.topcategory in nx_root:
+            if papp.protocol.topcategory not in nx_root:
                 nx_root[papp.protocol.topcategory] = nx.NXgroup()
-            if not papp.protocol.category.code in nx_root[papp.protocol.topcategory]:
+            if papp.protocol.category.code not in nx_root[papp.protocol.topcategory]:
                 nx_root[papp.protocol.topcategory][
                     papp.protocol.category.code
                 ] = nx.NXgroup()
@@ -71,12 +121,21 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 if papp.citation.owner is None
                 else papp.citation.owner.replace("/", "_").upper()
             )
-        except BaseException:
+        except BaseException:  # noqa: B036 FIXME
             provider = "@"
-        entry_id = "{}/entry_{}_{}".format(_categories_collection, provider, papp.uuid)
-    except Exception as err:
+        if papp.nx_name is None:
+            entry_id = "{}/{}_{}".format(_categories_collection, provider, papp.uuid)
+        else:
+            entry_id = "{}/{}_{}".format(
+                _categories_collection,
+                "entry" if papp.nx_name is None else papp.nx_name,
+                papp.uuid,
+            )
+    except Exception:
         # print(err)
-        entry_id = "/entry_{}".format(papp.uuid)
+        entry_id = "/{}_{}".format(
+            "entry" if papp.nx_name is None else papp.nx_name, papp.uuid
+        )
 
     _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
@@ -119,12 +178,25 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             experiment_documentation["date"] = papp.updated
             # category = nx.NXgroup()
             # experiment_documentation["category"] = category
-            experiment_documentation.attrs["topcategory"] = papp.protocol.topcategory
-            experiment_documentation.attrs["code"] = papp.protocol.category.code
-            experiment_documentation.attrs["term"] = papp.protocol.category.term
-            experiment_documentation.attrs["title"] = papp.protocol.category.title
-            experiment_documentation.attrs["endpoint"] = papp.protocol.endpoint
-            experiment_documentation.attrs["guideline"] = papp.protocol.guideline
+            experiment_documentation["protocol"] = nx.NXcollection()
+            experiment_documentation["protocol"].attrs[
+                "topcategory"
+            ] = papp.protocol.topcategory
+            experiment_documentation["protocol"].attrs[
+                "code"
+            ] = papp.protocol.category.code
+            experiment_documentation["protocol"].attrs[
+                "term"
+            ] = papp.protocol.category.term
+            experiment_documentation["protocol"].attrs[
+                "title"
+            ] = papp.protocol.category.title
+            experiment_documentation["protocol"].attrs[
+                "endpoint"
+            ] = papp.protocol.endpoint
+            experiment_documentation["protocol"].attrs[
+                "guideline"
+            ] = papp.protocol.guideline
             # definition is usually reference to the Nexus XML definition
             # ambit category codes and method serve similar role
             nx_root["{}/definition".format(entry_id)] = (
@@ -134,6 +206,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     papp.protocol.guideline,
                 )
             )
+
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
@@ -156,13 +229,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     nxmap.attrs["PROTOCOL_APPLICATION_UUID"] = "{}/entry_identifier_uuid".format(
         entry_id
     )
-    nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
-    nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
-    nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
-    nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
-    nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
-    nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
-    nxmap.attrs["EffectRecords"] = "datasets"
+
+    # no need to repeat these, rather make a xml definition and refer to it
+    # nxmap.attrs["INVESTIGATION_UUID"] = "{}/collection_identifier".format(entry_id)
+    # nxmap.attrs["ASSAY_UUID"] = "{}/experiment_identifier".format(entry_id)
+    # nxmap.attrs["Protocol"] = "{}/experiment_documentation".format(entry_id)
+    # nxmap.attrs["Citation"] = "{}/reference".format(entry_id)
+    # nxmap.attrs["Substance"] = "{}/sample".format(entry_id)
+    # nxmap.attrs["Parameters"] = ["instrument", "environment", "parameters"]
+    # nxmap.attrs["EffectRecords"] = "datasets"
 
     try:
         citation_id = "{}/reference".format(entry_id)
@@ -201,61 +276,42 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             nx_root[substance_id].attrs["uuid"] = papp.owner.substance.uuid
         nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(substance_id)
 
-    # parameters
-    if not ("{}/instrument".format(entry_id) in nx_root):
-        nx_root["{}/instrument".format(entry_id)] = nx.NXinstrument()
-    instrument = nx_root["{}/instrument".format(entry_id)]
-
-    if not ("{}/parameters".format(entry_id) in nx_root):
-        nx_root["{}/parameters".format(entry_id)] = nx.NXcollection()
-    parameters = nx_root["{}/parameters".format(entry_id)]
-
-    if not ("{}/environment".format(entry_id) in nx_root):
-        nx_root["{}/environment".format(entry_id)] = nx.NXenvironment()
-    environment = nx_root["{}/environment".format(entry_id)]
-
-    if not (papp.parameters is None):
-        for prm in papp.parameters:
+    if papp.parameters is not None:
+        for prm_path in papp.parameters:
             try:
-                value = papp.parameters[prm]
-                # Invalid path if the key contains /
-                # prm = prm.replace("/","_")
-                target = environment
-                if "instrument" in prm.lower():
-                    target = instrument
-                if "technique" in prm.lower():
-                    target = instrument
-                if "wavelength" in prm.lower():
-                    target = instrument
-                elif "sample" in prm.lower():
-                    target = sample
-                elif "material" in prm.lower():
-                    target = sample
-                elif ("ASSAY" == prm.upper()) or ("E.METHOD" == prm.upper()):
-                    target = nx_root[entry_id]["experiment_documentation"]
-                    # continue
-                elif "E.SOP_REFERENCE" == prm:
-                    # target = instrument
-                    target = nx_root[entry_id]["experiment_documentation"]
-                elif "OPERATOR" == prm:
-                    # target = instrument
-                    target = nx_root[entry_id]["experiment_documentation"]
-                elif prm.startswith("T."):
-                    target = instrument
+                value = papp.parameters[prm_path]
+                prms = prm_path.split("/")
+                if len(prms) == 1:
+                    prms = param_lookup(prm_path, value)
+                # print(prms,prms[:-1])
+                _entry = nx_root[entry_id]
+                for _group in prms[:-1]:
+                    if _group not in _entry:
+                        if _group == "instrument":
+                            _entry[_group] = nx.NXinstrument()
+                        elif _group == "environment":
+                            _entry[_group] = nx.NXenvironment()
+                        elif _group == "parameters":
+                            _entry[_group] = nx.NXcollection()
+                        elif _group == "experiment_documentation":
+                            _entry[_group] = nx.NXnote()
+                        else:
+                            _entry[_group] = nx.NXgroup()
+                    _entry = _entry[_group]
+                target = _entry
+                prm = prms[-1]
 
-                if "EXPERIMENT_END_DATE" == prm:
-                    nx_root[entry_id]["end_time"] = value
-                elif "EXPERIMENT_START_DATE" == prm:
-                    nx_root[entry_id]["start_time"] = value
-                elif "__input_file" == prm:
-                    nx_root[entry_id]["experiment_documentation"][prm] = value
-                elif isinstance(value, str):
-                    target[prm] = nx.NXfield(str(value))
+                if isinstance(value, str):
+                    target[prm] = nx.NXfield(value)
+                elif isinstance(value, int):
+                    target[prm] = nx.NXfield(value)
+                elif isinstance(value, float):
+                    target[prm] = nx.NXfield(value)
                 elif isinstance(value, Value):
                     # tbd ranges?
                     target[prm] = nx.NXfield(value.loValue, unit=value.unit)
                 else:
-                    target = parameters
+                    target[prm] = nx.NXfield(str(value))
             except Exception as err:
                 raise Exception(
                     "ProtocolApplication: parameters parsing error {} {}".format(
@@ -263,9 +319,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                     )
                 ) from err
 
-    if not (papp.owner is None):
+    if papp.owner is not None:
         try:
-            sample["uuid"] = papp.owner.substance.uuid
+            sample.attrs["uuid"] = papp.owner.substance.uuid
             sample["provider"] = papp.owner.company.name
         except Exception as err:
             raise Exception(
@@ -284,7 +340,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
 
     # nx_root["/group_byexperiment"] = nx.NXgroup()
     # print(nx_root[entry_id].attrs)
-    # nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink("{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
+    # nx_root["/group_byexperiment{}".format(entry_id)] = nx.NXlink(
+    #     "{}/RAW_DATA".format(entry_id),abspath=True,soft=True)
     # nx_root["/group_byexperiment/{}".format("xyz")] = nx.NXlink(substance_id)
     # nx.NXlink(nx_root[entry_id])
     # nx_root[_categories_collection] = nx.NXlink(entry_id)
@@ -292,7 +349,7 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
 
 
 @add_ambitmodel_method(Study)
-def to_nexus(study: Study, nx_root: nx.NXroot = None, hierarchy=False):
+def to_nexus(study: Study, nx_root: nx.NXroot = None, hierarchy=False):  # noqa: F811
     if nx_root is None:
         nx_root = nx.NXroot()
     for papp in study.study:
@@ -302,7 +359,9 @@ def to_nexus(study: Study, nx_root: nx.NXroot = None, hierarchy=False):
 
 
 @add_ambitmodel_method(SubstanceRecord)
-def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=False):
+def to_nexus(  # noqa: F811
+    substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=False
+):
     """
     SubstanceRecord to nexus entry (NXentry)
 
@@ -342,7 +401,7 @@ def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=Fa
             print(substance.URI)
             print(err)
         nxroot.save("example.nxs",mode="w")
-    """
+    """  # noqa: B950
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -361,7 +420,8 @@ def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=Fa
     if substance.composition is not None:
         for index, ce in enumerate(substance.composition):
             component = nx.NXsample_component()
-            # name='' cas='' einecs='' inchikey='YVZATJAPAZIWIL-UHFFFAOYSA-M' inchi='InChI=1S/H2O.Zn/h1H2;/q;+1/p-1' formula='HOZn'
+            # name='' cas='' einecs='' inchikey='YVZATJAPAZIWIL-UHFFFAOYSA-M'
+            # inchi='InChI=1S/H2O.Zn/h1H2;/q;+1/p-1' formula='HOZn'
             component.name = ce.component.compound.name
             component.einecs = ce.component.compound.einecs
             component.cas = ce.component.compound.cas
@@ -384,7 +444,9 @@ def to_nexus(substance: SubstanceRecord, nx_root: nx.NXroot = None, hierarchy=Fa
 
 
 @add_ambitmodel_method(Substances)
-def to_nexus(substances: Substances, nx_root: nx.NXroot = None, hierarchy=False):
+def to_nexus(  # noqa: F811
+    substances: Substances, nx_root: nx.NXroot = None, hierarchy=False
+):
     if nx_root is None:
         nx_root = nx.NXroot()
     for substance in substances.substance:
@@ -393,7 +455,7 @@ def to_nexus(substances: Substances, nx_root: nx.NXroot = None, hierarchy=False)
 
 
 @add_ambitmodel_method(Composition)
-def to_nexus(composition: Composition, nx_root: nx.NXroot = None):
+def to_nexus(composition: Composition, nx_root: nx.NXroot = None):  # noqa: F811
     if nx_root is None:
         nx_root = nx.NXroot()
 
@@ -413,7 +475,8 @@ def effectarray2data(effect: EffectArray):
 
         Parameters:
         - key: The axis name to check.
-        - alt_axes: Dictionary where keys are primary axis names and values are lists of alternative axis names.
+        - alt_axes: Dictionary where keys are primary axis names and values are lists of
+        alternative axis names.
 
         Returns:
         - True if the key is an alternate axis, False otherwise.
@@ -442,39 +505,66 @@ def effectarray2data(effect: EffectArray):
 
     signal = nx.tree.NXfield(
         effect.signal.values,
-        name="value",
+        name=effect.endpoint,
         units=effect.signal.unit,
         long_name="{} {}".format(
             effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
         ).strip(),
     )
-    aux_signals = []
-    if effect.signal.auxiliary:
-        for a in effect.signal.auxiliary:
-            _tmp = effect.signal.auxiliary[a]
-            if _tmp.size > 0:
-                aux_signals.append(
-                    nx.tree.NXfield(
-                        _tmp,
-                        name=a.replace("/", "_"),
-                        units=effect.signal.unit,
-                        long_name="{} ({}) {}".format(
-                            effect.endpoint,
-                            a,
-                            "" if effect.signal.unit is None else effect.signal.unit,
-                        ).strip(),
-                    )
-                )
-            # print(a,aux_signal)
-    # print(effect.endpoint,aux_signals,len(aux_signals))
-    # print(">>>",effect.endpoint,effect.signal.values)
-    # aux_signals = []
+    if effect.signal.conditions is not None:
+        for key in effect.signal.conditions:
+            signal.attrs[key] = effect.signal.conditions[key]
+
     nxdata = nx.tree.NXdata(
         signal=signal,
         axes=None if len(axes) == 0 else axes,
         errors=effect.signal.errorValue,
-        auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
+        # auxiliary_signals=None if len(aux_signals) < 1 else aux_signals,
     )
+    aux_signals = []
+
+    if effect.signal.auxiliary:
+        for a in effect.signal.auxiliary:
+            item = effect.signal.auxiliary[a]
+            if isinstance(item, MetaValueArray or isinstance(item, ValueArray)):
+                _tmp = item.values
+                _tmp_unit = item.unit
+                _tmp_meta = item.conditions
+
+            elif isinstance(item, np.ndarray):
+                _tmp = item
+                _tmp_unit = effect.signal.unit
+                _tmp_meta = None
+            else:
+                continue
+
+            if _tmp.size > 0:
+                _auxname = a.replace("/", "_")
+                long_name = "{} ({}) {}".format(
+                    effect.endpoint,
+                    a,
+                    "" if effect.signal.unit is None else effect.signal.unit,
+                ).strip()
+                if _auxname == "textValue":
+                    nxdata[_auxname] = nx.tree.NXfield(
+                        _tmp,
+                        name=_auxname,
+                        units=_tmp_unit,
+                        long_name=long_name,
+                        dtype=string_dtype(encoding="utf-8"),
+                    )
+                else:
+                    nxdata[_auxname] = nx.tree.NXfield(
+                        _tmp, name=_auxname, units=_tmp_unit, long_name=long_name
+                    )
+
+                if _tmp_meta is not None:
+                    for key in _tmp_meta:
+                        nxdata[_auxname].attrs[key] = _tmp_meta[key]
+                aux_signals.append(_auxname)
+
+        if len(aux_signals) > 0:
+            nxdata.attrs["auxiliary_signals"] = aux_signals
     if effect.conditions:
         for key in effect.conditions:
             nxdata.attrs[key] = effect.conditions[key]
@@ -498,6 +588,7 @@ def effectarray2data(effect: EffectArray):
     nxdata.attrs["interpretation"] = (
         "scalar" if index == 0 else ("spectrum" if index == 1 else "image")
     )
+    nxdata.title = effect.nx_name
     return nxdata
 
 
@@ -511,7 +602,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
         _path = "/substance/{}".format(pa.owner.substance.uuid)
         # print(_path, nx_root[_path].name)
         substance_name = nx_root[_path].name
-    except BaseException:
+    except BaseException:  # noqa: B036 FIXME
         substance_name = ""
 
     effectarrays_only, df = pa.convert_effectrecords2array()
@@ -533,7 +624,14 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
                     entry[_group_key]["description"] = effect.endpointtype
             #    entry[_group_key] = _endpointtype_groups[_group_key]
 
-            entryid = "{}_{}".format(effect.endpoint, index)
+            entryid = "{}_{}".format(
+                (
+                    effect.endpoint
+                    if effect.nx_name is None
+                    else effect.nx_name.replace("/", "_")
+                ),
+                index,
+            )
             if entryid in entry[_group_key]:
                 del entry[_group_key][entryid]
                 print("replacing {}/{}".format(_group_key, entryid))
@@ -543,9 +641,15 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
             entry[_group_key][entryid] = nxdata
             if _default is None:
                 entry.attrs["default"] = _group_key
-            nxdata.title = "{} (by {}) {}".format(
-                effect.endpoint, pa.citation.owner, substance_name
-            )
+
+            if nxdata.title is None:
+                nxdata.title = (
+                    "{} (by {}) {}".format(
+                        effect.endpoint, pa.citation.owner, substance_name
+                    )
+                    if pa.nx_name is None
+                    else pa.nx_name
+                )
 
     return entry
 

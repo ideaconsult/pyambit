@@ -1,13 +1,14 @@
 import uuid
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict
 
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
 
 import pyambit.datamodel as mx
-from pyambit.nexus_writer import to_nexus
+
+from pyambit.nexus_writer import to_nexus  # noqa: F401
 
 
 def spe2effect(
@@ -17,9 +18,17 @@ def spe2effect(
     endpointtype="RAW_DATA",
     meta: Dict = None,
 ):
-    data_dict: Dict[str, mx.ValueArray] = {"x": mx.ValueArray(values=x, unit=unit)}
+    try:
+        signal = meta["@signal"]
+    except KeyError:
+        signal = "y"
+    try:
+        axes = meta["@axes"]
+    except KeyError:
+        axes = ["y"]
+    data_dict: Dict[str, mx.ValueArray] = {axes[0]: mx.ValueArray(values=x, unit=unit)}
     return mx.EffectArray(
-        endpoint="y",
+        endpoint=signal,
         endpointtype=endpointtype,
         signal=mx.ValueArray(values=y, unit="count"),
         axes=data_dict,
@@ -28,15 +37,15 @@ def spe2effect(
 
 def configure_papp(
     papp: mx.ProtocolApplication = None,
-    instrument=None,
+    instrument=("vendor", "model"),
     wavelength=None,
-    provider="FNMT",
+    provider="ABCD",
     sample="PST",
-    sample_provider="CHARISMA",
-    investigation="Round Robin 1",
+    sample_provider="TEST",
+    investigation="My investigation",
     citation: mx.Citation = None,
-    prefix="CRMA",
-    meta=None,
+    prefix="TEST",
+    meta: Dict = None,
 ):
     if papp is None:
         papp = mx.ProtocolApplication(
@@ -57,10 +66,16 @@ def configure_papp(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
     )
     papp.parameters = {
-        "E.method": "Raman spectrometry",
-        "wavelength": wavelength,
-        "T.instrument_model": instrument,
+        "/experiment_documentation/E.method": "Raman spectroscopy",
+        "/experiment_type": "Raman spectroscopy",
+        "instrument/beam_incident/wavelength": mx.Value(loValue=wavelength, unit="nm"),
+        "instrument/device_information/vendor": instrument[0],
+        "instrument/device_information/model": instrument[1],
+        "/definition": "NXraman",
     }
+    for key in list(meta.keys()):
+        if not key.startswith("@"):
+            papp.parameters["/parameters/{}".format(key)] = meta[key]
 
     papp.uuid = "{}-{}".format(
         prefix,

@@ -960,12 +960,15 @@ class ProtocolApplication(AmbitModel):
                 if auxsignal_cols:
                     for a in auxsignal_cols:
                         if not pd.isna(row[a]):
-                            auxsignals[a][indices] = row[a].decode('utf-8')
-                            # print(row[a], type(row[a]))
+                            if isinstance(row[a], bytes):
+                                auxsignals[a][indices] = row[a].decode('utf-8')
+                            else:
+                                auxsignals[a][indices] = row[a]
             except:
                 # print("matrix", self.uuid)
                 # print(row)
-                # print(primary_axis_cols)
+                print(axis_indices)
+                print(primary_axis_cols)
                 print(traceback.format_exc())
 
         for axis in primary_axis_cols:
@@ -1081,12 +1084,12 @@ class ProtocolApplication(AmbitModel):
                             if _tmp["loValue"].dropna().empty
                             else transform_array(_tmp["loValue"].values)
                         )
-                        loQualifier = (
+                        _loQualifier = (
                             None
                             if _tmp["loQualifier"].dropna().empty
                             else transform_array(_tmp["loQualifier"].values)
                         )
-                        upQualifier = (
+                        _upQualifier = (
                             None
                             if _tmp["upQualifier"].dropna().empty
                             else transform_array(_tmp["upQualifier"].values)
@@ -1112,42 +1115,60 @@ class ProtocolApplication(AmbitModel):
                                     auxsignal_cols.append(tag)
                                 df_axes[tag] = _values
 
-                        if _tmp["errorValue"].dropna().empty:
-                            error_col = None
+                        if df_axes.isna().any().any():
+                            # for some reason there are still nan values
+                            axes_all = []
+                            nan_columns = df_axes.columns[df_axes.isna().any()].tolist()
+                            df_axes_nan = df_axes[df_axes[nan_columns].isna().any(axis=1)]
+                            df_axes_nan = df_axes_nan.dropna(axis=1, how="all")
+                            df_axes_not_nan = df_axes[df_axes[nan_columns].notna().all(axis=1)]
+                            if not df_axes_not_nan.empty:
+                                axes_all.append(df_axes_not_nan)
+                                # print(print(df_axes_not_nan))
+                            if not df_axes_nan.empty:
+                                # ignore for now
+                                # axes_all.append(df_axes_nan)
+                                print(df_axes_nan)
                         else:
-                            error_col = "errorValue"
-                            df_axes[error_col] = _tmp[error_col]
+                            axes_all = [df_axes]
+                            
+                        for df_axes in axes_all:
+                            if _tmp["errorValue"].dropna().empty:
+                                error_col = None
+                            else:
+                                error_col = "errorValue"
+                                df_axes[error_col] = _tmp[error_col]
 
-                        matrix, axes, matrix_errors, auxsignals = (
-                            self.create_multidimensional_matrix(
-                                df_axes,
-                                signal_col,
-                                axes,
-                                alt_axes,
-                                error_col,
-                                auxsignal_cols,
+                            matrix, axes, matrix_errors, auxsignals = (
+                                self.create_multidimensional_matrix(
+                                    df_axes,
+                                    signal_col,
+                                    axes,
+                                    alt_axes,
+                                    error_col,
+                                    auxsignal_cols,
+                                )
                             )
-                        )
-                        # Remove items where the value is None or NaN
-                        new_conditions = {k: v for k, v in new_conditions.items() if v is not None and not (isinstance(v, float) and np.isnan(v))}
+                            # Remove items where the value is None or NaN
+                            new_conditions = {k: v for k, v in new_conditions.items() if v is not None and not (isinstance(v, float) and np.isnan(v))}
 
-                        earray = EffectArray(
-                            endpoint=endpoint,
-                            endpointtype=endpointtype,
-                            conditions=new_conditions,
-                            signal=ValueArray(
-                                unit=unit,
-                                # values=textValue if loValues is None else loValues,
-                                values=matrix,
-                                errQualifier=errqualifier,
-                                errorValue=matrix_errors,
-                                auxiliary=auxsignals,
-                            ),
-                            axes=axes,
-                            axis_groups=alt_axes,
-                        )
-                        arrays.append(earray)
-                        # print(earray)
+                            earray = EffectArray(
+                                endpoint=endpoint,
+                                endpointtype=endpointtype,
+                                conditions=new_conditions,
+                                signal=ValueArray(
+                                    unit=unit,
+                                    # values=textValue if loValues is None else loValues,
+                                    values=matrix,
+                                    errQualifier=errqualifier,
+                                    errorValue=matrix_errors,
+                                    auxiliary=auxsignals,
+                                ),
+                                axes=axes,
+                                axis_groups=alt_axes,
+                            )
+                            arrays.append(earray)
+                            # print(earray)
         return arrays, _df
 
 

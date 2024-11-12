@@ -72,7 +72,7 @@ def configure_papp(
         "instrument/device_information/model": instrument[1],
         "/definition": "NXraman"
     }
-    for key in meta.get_all_keys():
+    for key in list(meta.keys()):
         if not key.startswith("@"):
             papp.parameters["/parameters/{}".format(key)] = meta[key]
 

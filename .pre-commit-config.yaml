@@ -4,6 +4,10 @@ repos:
     rev: 1.8.3
     hooks:
       - id: poetry-check
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 4.0.1
+    hooks:
+      - id: nb-clean
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:

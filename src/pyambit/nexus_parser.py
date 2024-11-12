@@ -94,7 +94,7 @@ class Nexus2Ambit:
                     guideline=[_protocol.attrs["guideline"]]
                 )
         if protocol is None:
-            if nxentry["definition"].nxvalue == "NXRaman":
+            if nxentry["definition"].nxvalue == "NXraman":
                 protocol = protocol = Protocol("P-CHEM", "ANALYTICAL_METHODS_SECTION", "", ["Raman spectroscopy"])
                 parameters["E.method"] = nxentry["definition"].nxvalue
             else:

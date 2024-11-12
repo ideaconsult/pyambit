@@ -17,9 +17,17 @@ def spe2effect(
     endpointtype="RAW_DATA",
     meta: Dict = None,
 ):
-    data_dict: Dict[str, mx.ValueArray] = {"x": mx.ValueArray(values=x, unit=unit)}
+    try:
+        signal = meta["@signal"]
+    except KeyError:
+        signal = "y"
+    try:
+        axes = meta["@axes"]
+    except KeyError:
+        axes = ["y"]
+    data_dict: Dict[str, mx.ValueArray] = {axes[0]: mx.ValueArray(values=x, unit=unit)}
     return mx.EffectArray(
-        endpoint="y",
+        endpoint=signal,
         endpointtype=endpointtype,
         signal=mx.ValueArray(values=y, unit="count"),
         axes=data_dict,
@@ -36,7 +44,7 @@ def configure_papp(
     investigation="My investigation",
     citation: mx.Citation = None,
     prefix="TEST",
-    meta=None,
+    meta: Dict = None
 ):
     if papp is None:
         papp = mx.ProtocolApplication(
@@ -57,13 +65,16 @@ def configure_papp(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
     )
     papp.parameters = {
-        "experiment_documentation/E.method": "Raman spectroscopy",
-        "experiment_type" : "Raman spectroscopy" ,
+        "/experiment_documentation/E.method": "Raman spectroscopy",
+        "/experiment_type" : "Raman spectroscopy" ,
         "instrument/beam_incident/wavelength":  mx.Value(loValue=wavelength, unit="nm"),
         "instrument/device_information/vendor": instrument[0],
         "instrument/device_information/model": instrument[1],
-        "definition": "NXRaman"
+        "/definition": "NXraman"
     }
+    for key in meta.get_all_keys():
+        if not key.startswith("@"):
+            papp.parameters["/parameters/{}".format(key)] = meta[key]
 
     papp.uuid = "{}-{}".format(
         prefix,

@@ -26,15 +26,18 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - '3.9'
           - '3.10'
           - '3.11'
           - '3.12'
+          - '3.13'
 
     steps:
 
       - name: Checkout the repository
         uses: actions/checkout@v4.2.2
+
+      - name: Mask existing system Python
+        run: sudo rm -r /usr/bin/python*
 
       - name: Setup Python
         uses: actions/setup-python@v5.3.0

@@ -30,7 +30,7 @@ def spe2effect(
     return mx.EffectArray(
         endpoint=signal,
         endpointtype=endpointtype,
-        signal=mx.ValueArray(values=y, unit="count"),
+        signal=mx.ValueArray(values=y, unit="Arbitr.Units"),
         axes=data_dict,
     )
 
@@ -110,7 +110,7 @@ def spe2ambit(
     sample_provider="CHARISMA",
     prefix="CRMA",
     endpointtype="RAW_DATA",
-    unit="cm-1",
+    unit="cm¯¹",
     papp=None,
 ):
 

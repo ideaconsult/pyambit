@@ -495,8 +495,10 @@ def effectarray2data(effect: EffectArray):
             nx.tree.NXfield(
                 effect.axes[key].values,
                 name=key.replace("/", "_"),
-                long_name="{} {}".format(
-                    key, "" if effect.axes[key].unit is None else effect.axes[key].unit
+                long_name="{}{}{}".format(
+                    key,
+                    "" if effect.axes[key].unit is None else "/",
+                    "" if effect.axes[key].unit is None else effect.axes[key].unit
                 ).strip(),
                 errors=effect.axes[key].errorValue,
                 units=effect.axes[key].unit,
@@ -507,8 +509,10 @@ def effectarray2data(effect: EffectArray):
         effect.signal.values,
         name=effect.endpoint,
         units=effect.signal.unit,
-        long_name="{} {}".format(
-            effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
+        long_name="{}{}{}".format(
+            effect.endpoint,
+            "" if effect.signal.unit is None else "/", 
+            "" if effect.signal.unit is None else effect.signal.unit
         ).strip(),
     )
     if effect.signal.conditions is not None:
@@ -540,9 +544,10 @@ def effectarray2data(effect: EffectArray):
 
             if _tmp.size > 0:
                 _auxname = a.replace("/", "_")
-                long_name = "{} ({}) {}".format(
+                long_name = "{} ({}){}{}".format(
                     effect.endpoint,
                     a,
+                    "" if effect.signal.unit is None else "/",
                     "" if effect.signal.unit is None else effect.signal.unit,
                 ).strip()
                 if _auxname == "textValue":

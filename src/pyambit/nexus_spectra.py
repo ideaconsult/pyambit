@@ -124,7 +124,7 @@ def spe2ambit(
             ),
             effects=[],
         )
-        papp.nx_name = sample
+        papp.nx_name = provider
         configure_papp(
             papp,
             instrument=instrument,

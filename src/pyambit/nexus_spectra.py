@@ -17,6 +17,7 @@ def spe2effect(
     unit="cm-1",
     endpointtype="RAW_DATA",
     meta: Dict = None,
+    nx_name=None
 ):
     try:
         signal = meta["@signal"]
@@ -32,6 +33,7 @@ def spe2effect(
         endpointtype=endpointtype,
         signal=mx.ValueArray(values=y, unit="Arbitr.Units"),
         axes=data_dict,
+        nx_name=nx_name
     )
 
 
@@ -122,6 +124,7 @@ def spe2ambit(
             ),
             effects=[],
         )
+        papp.nx_name = sample
         configure_papp(
             papp,
             instrument=instrument,
@@ -134,7 +137,7 @@ def spe2ambit(
             prefix=prefix,
             meta=meta,
         )
-    papp.effects.append(spe2effect(x, y, unit, endpointtype, meta))
+    papp.effects.append(spe2effect(x, y, unit, endpointtype, meta, nx_name=sample))
     return papp
 
 

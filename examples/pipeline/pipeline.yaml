@@ -1,0 +1,14 @@
+meta:
+    extract_upstream: False
+
+tasks:
+  - source: extract.py
+    upstream: []    
+    product:
+      nb: "products/extract.ipynb"
+      json: "products/remote.json"
+      nexus: "products/nexus"
+    params:
+      url: "{{url}}"
+      hierarchy: True
+      single_nexus: True

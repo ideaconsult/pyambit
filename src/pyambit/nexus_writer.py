@@ -432,9 +432,12 @@ def to_nexus(  # noqa: F811
             # print(ce.component.values)
             # print(ce.proportion)
             # print(ce.relation)
-            nx_root[
-                "{}/{}_{}".format(substance_id, ce.relation.replace("HAS_", ""), index)
-            ] = component
+            _path = "{}/{}_{}".format(substance_id, ce.relation.replace("HAS_", ""), index)
+            nx_root[_path] = component
+            if ce.component.values is not None:
+                for key in ce.component.values.keys():
+                    nx_root[_path].attrs[key] = ce.component.values[key] 
+
 
     if substance.study is not None:
         for papp in substance.study:

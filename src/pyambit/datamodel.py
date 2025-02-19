@@ -351,7 +351,7 @@ class EffectRecord(AmbitModel):
     conditions: Optional[Dict[str, Union[str, int, float, Value, None]]] = None
     idresult: Optional[int] = None
     endpointGroup: Optional[int] = None
-    endpointSynonyms: List[str] = None
+    endpointSynonyms: Optional[List[str]] = None
     sampleID: Optional[str] = None
 
     @field_validator("endpoint", mode="before")

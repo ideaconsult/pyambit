@@ -76,7 +76,18 @@ def configure_papp(
         "/definition": "NXraman",
     }
     for key in list(meta.keys()):
-        if not key.startswith("@"):
+        key_l = key.lower()
+        if key_l == "grating":
+            papp.parameters["instrument/monochromator/grating/period"] = meta[key]
+        elif key_l in ["pin_hole_size", "pin hole size"]:
+            papp.parameters["instrument/objective_lens/numerical_aperture/size"] = meta[key]
+        elif key_l in ["acquisition_time", "intigration times(ms)", "integration times(ms)", "integration time", "integ_time"]:
+            papp.parameters["instrument/detector/count_time"] = meta[key]
+        elif key_l in ["accumulation"]:
+            papp.parameters["instrument/detector/exposure_time"] = meta[key]
+        elif key_l in ["delay (s)"]:
+            papp.parameters["instrument/detector/delay_time"] = meta[key]            
+        elif not key.startswith("@"):
             papp.parameters["/parameters/{}".format(key)] = meta[key]
 
     papp.uuid = "{}-{}".format(

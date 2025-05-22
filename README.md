@@ -13,7 +13,7 @@
 | src/pyambit/solr\_writer.py                      |      131 |       15 |     89% |21-22, 26, 34, 43, 59, 62-66, 100, 128, 174-176 |
 | tests/pyambit/datamodel/\_\_init\_\_.py          |        0 |        0 |    100% |           |
 | tests/pyambit/datamodel/datamodel\_test.py       |      214 |        0 |    100% |           |
-| tests/pyambit/datamodel/nexus\_writer\_test.py   |       51 |       12 |     76% |36-37, 40-41, 72-82 |
+| tests/pyambit/datamodel/nexus\_writer\_test.py   |       51 |       12 |     76% |35-36, 39-40, 71-81 |
 | tests/pyambit/datamodel/solr\_writer\_test.py    |       26 |        0 |    100% |           |
 | tests/pyambit/datamodel/spectra\_writer\_test.py |       21 |        0 |    100% |           |
 |                                        **TOTAL** | **1838** |  **383** | **79%** |           |

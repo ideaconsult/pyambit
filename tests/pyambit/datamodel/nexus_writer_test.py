@@ -10,7 +10,6 @@ import pytest
 from pyambit import nexus_writer  # noqa: F401
 from pyambit.datamodel import Study, Substances
 
-
 TEST_DIR = Path(__file__).parent.parent / "resources"
 
 

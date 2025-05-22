@@ -6,7 +6,6 @@ import numpy as np
 import numpy.typing as npt
 import pyambit.datamodel as mb
 
-
 TEST_DIR = Path(__file__).parent.parent / "resources"
 
 

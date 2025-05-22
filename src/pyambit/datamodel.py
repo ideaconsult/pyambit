@@ -845,7 +845,7 @@ class ProtocolApplication(AmbitModel):
         data = super().model_dump(**kwargs)
         if self.parameters:
             data["parameters"] = {
-                k: (v.model_dump() if isinstance(v, BaseModel) else v)
+                k: v.model_dump() if isinstance(v, BaseModel) else v
                 for k, v in self.parameters.items()
             }
         if self.citation:
@@ -864,7 +864,7 @@ class ProtocolApplication(AmbitModel):
     def model_construct(cls, **data):
         if "parameters" in data and isinstance(data["parameters"], dict):
             data["parameters"] = {
-                k: (Value(**v) if isinstance(v, dict) else v)
+                k: Value(**v) if isinstance(v, dict) else v
                 for k, v in data["parameters"].items()
             }
         if "citation" in data and isinstance(data["citation"], dict):

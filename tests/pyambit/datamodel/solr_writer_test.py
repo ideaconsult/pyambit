@@ -8,7 +8,6 @@ from pyambit.datamodel import Study, Substances
 
 from pyambit.solr_writer import Ambit2Solr
 
-
 TEST_DIR = Path(__file__).parent.parent / "resources"
 
 

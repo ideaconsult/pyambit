@@ -251,20 +251,21 @@ files = [
 
 [[package]]
 name = "nexusformat"
-version = "1.0.7"
+version = "1.0.8"
 description = "Python API to access NeXus data"
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
-    {file = "nexusformat-1.0.7-py3-none-any.whl", hash = "sha256:328d7e83cd28aec40172f385b935db9f27ea4539e34995d440bb21b12f3ecd30"},
-    {file = "nexusformat-1.0.7.tar.gz", hash = "sha256:4924ba2d339da8b4c7346a4144eed410b17da896ffb06f04c2b13f6b3c64ef03"},
+    {file = "nexusformat-1.0.8-py3-none-any.whl", hash = "sha256:7ab68077393d4d4bb7b31c0ac2e19d108923a7dc0861cf11d8265520d2e48a12"},
+    {file = "nexusformat-1.0.8.tar.gz", hash = "sha256:cec20e9d680c6d4689977b479e9422177f90cb8f1dc0a0c0bc5960eb3f215bf3"},
 ]
 
 [package.dependencies]
 h5py = ">=2.9"
 hdf5plugin = "*"
 numpy = "*"
+packaging = "*"
 scipy = "*"
 
 [package.extras]
@@ -353,7 +354,7 @@ version = "24.2"
 description = "Core utilities for Python packages"
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
     {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},

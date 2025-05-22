@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyambit"
-version = "0.0.1"
+version = "0.0.2"
 description = "Python implementation of AMBIT data model"
 license = "MIT"
 authors = [

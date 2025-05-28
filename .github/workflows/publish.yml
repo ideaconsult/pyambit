@@ -1,12 +1,12 @@
 ---
 name: Publish Python package to PyPI
 
+permissions:
+  contents: read
+
 on:  # yamllint disable-line rule:truthy
   release:
     types: [published]
-
-permissions:
-  contents: read
 
 env:
   POETRY_VERSION: '2.1.3'
@@ -49,11 +49,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4.6.2
         with:
-          name: pyambit-dist
-          path: dist
           if-no-files-found: error
-          retention-days: 1
+          name: pyambit-dist
           overwrite: true
+          path: dist
+          retention-days: 1
 
   publish:
 

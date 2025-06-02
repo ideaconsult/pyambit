@@ -107,6 +107,9 @@ jobs:
 
       - name: Checkout the repository
         uses: actions/checkout@v4.2.2
+        with:
+          # https://github.com/py-cov-action/python-coverage-comment-action/commit/2e8dc23
+          fetch-depth: 1000
 
       - name: Retrieve the coverage reports
         id: download
@@ -117,7 +120,7 @@ jobs:
 
       - name: Process the coverage reports
         id: coverage_processing
-        uses: py-cov-action/python-coverage-comment-action@v3.32
+        uses: py-cov-action/python-coverage-comment-action@v3.33
         with:
           COVERAGE_DATA_BRANCH: 'COVERAGE-REPORT'
           GITHUB_TOKEN: ${{ github.token }}

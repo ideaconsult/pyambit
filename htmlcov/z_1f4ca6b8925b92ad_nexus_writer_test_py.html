@@ -4,7 +4,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Coverage for tests/pyambit/datamodel/nexus_writer_test.py: 76%</title>
     <link rel="icon" sizes="32x32" href="favicon_32_cb_58284776.png">
-    <link rel="stylesheet" href="style_cb_81f8c14c.css" type="text/css">
+    <link rel="stylesheet" href="style_cb_6b508a39.css" type="text/css">
     <script src="coverage_html_cb_6fb7b396.js" defer></script>
 </head>
 <body class="pyfile">
@@ -64,8 +64,8 @@
             <a id="indexLink" class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a id="nextFileLink" class="nav" href="z_1f4ca6b8925b92ad_solr_writer_test_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.9.1">coverage.py v7.9.1</a>,
-            created at 2025-06-24 01:09 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.10.6">coverage.py v7.10.6</a>,
+            created at 2025-10-02 14:04 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -120,8 +120,8 @@
     <p class="pln"><span class="n"><a id="t38" href="#t38">38</a></span><span class="t">        <span class="com"># Check if dtype is Unicode</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t39" href="#t39">39</a></span><span class="t">        <span class="key">if</span> <span class="nam">node</span><span class="op">.</span><span class="nam">dtype</span><span class="op">.</span><span class="nam">char</span> <span class="op">==</span> <span class="str">"U"</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t40" href="#t40">40</a></span><span class="t">            <span class="nam">print</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t41" href="#t41">41</a></span><span class="t">                <span class="fst">f"</span><span class="fst">*****Problematic Unicode data found at </span><span class="op">{</span><span class="nam">path</span><span class="op">}</span><span class="fst"> with dtype </span><span class="op">{</span><span class="nam">node</span><span class="op">.</span><span class="nam">dtype</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t42" href="#t42">42</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t41" href="#t41">41</a></span><span class="t">                <span class="fst">f"</span><span class="fst">*****Problematic Unicode data found at </span><span class="op">{</span><span class="nam">path</span><span class="op">}</span><span class="fst"> with dtype </span><span class="op">{</span><span class="nam">node</span><span class="op">.</span><span class="nam">dtype</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis mis2 show_mis"><span class="n"><a id="t42" href="#t42">42</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t43" href="#t43">43</a></span><span class="t">    <span class="com"># else:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t44" href="#t44">44</a></span><span class="t">    <span class="com">#    print(f"Skipping non-data node at {path}")</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t45" href="#t45">45</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -143,8 +143,8 @@
     <p class="pln"><span class="n"><a id="t61" href="#t61">61</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t62" href="#t62">62</a></span><span class="t">            <span class="nam">study</span><span class="op">.</span><span class="nam">nx_name</span> <span class="op">=</span> <span class="str">"test"</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t63" href="#t63">63</a></span><span class="t">            <span class="nam">file</span> <span class="op">=</span> <span class="nam">os</span><span class="op">.</span><span class="nam">path</span><span class="op">.</span><span class="nam">join</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t64" href="#t64">64</a></span><span class="t">                <span class="nam">tempfile</span><span class="op">.</span><span class="nam">gettempdir</span><span class="op">(</span><span class="op">)</span><span class="op">,</span> <span class="str">"study_{}.nxs"</span><span class="op">.</span><span class="nam">format</span><span class="op">(</span><span class="nam">study</span><span class="op">.</span><span class="nam">uuid</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t65" href="#t65">65</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t64" href="#t64">64</a></span><span class="t">                <span class="nam">tempfile</span><span class="op">.</span><span class="nam">gettempdir</span><span class="op">(</span><span class="op">)</span><span class="op">,</span> <span class="str">"study_{}.nxs"</span><span class="op">.</span><span class="nam">format</span><span class="op">(</span><span class="nam">study</span><span class="op">.</span><span class="nam">uuid</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t65" href="#t65">65</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t66" href="#t66">66</a></span><span class="t">            <span class="nam">nxroot</span> <span class="op">=</span> <span class="nam">nx</span><span class="op">.</span><span class="nam">NXroot</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t67" href="#t67">67</a></span><span class="t">            <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t68" href="#t68">68</a></span><span class="t">                <span class="nam">study</span><span class="op">.</span><span class="nam">to_nexus</span><span class="op">(</span><span class="nam">nxroot</span><span class="op">,</span> <span class="nam">hierarchy</span><span class="op">=</span><span class="key">True</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -169,8 +169,8 @@
             <a class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
             <a class="nav" href="z_1f4ca6b8925b92ad_solr_writer_test_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.9.1">coverage.py v7.9.1</a>,
-            created at 2025-06-24 01:09 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.10.6">coverage.py v7.10.6</a>,
+            created at 2025-10-02 14:04 +0000
         </p>
     </div>
 </footer>

@@ -10,5 +10,6 @@ tasks:
       nexus: "products/nexus"
     params:
       url: "{{url}}"
-      hierarchy: True
-      single_nexus: True
+      hierarchy: "{{nexus_hierarchy}}"
+      single_nexus: "{{single_nexus}}"
+      max_substances: "{{max_substances}}"

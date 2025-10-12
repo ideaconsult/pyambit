@@ -15,12 +15,14 @@ product = None
 url = None
 hierarchy = None
 single_nexus = None
+max_substances = None
 # -
 
 Path(product["nexus"]).mkdir(parents=True, exist_ok=True)
 
 
-def query(url="https://apps.ideaconsult.net/gracious/substance/" ,params = {"max" : 1}):
+def query(url="https://apps.ideaconsult.net/gracious/substance/",
+          params = {"max" : 1}):
     substances = None
     headers = {'Accept': 'application/json'}
     result = requests.get(url, params=params, headers=headers)
@@ -61,7 +63,7 @@ def write_studies_nexus(substances, single_file=single_nexus):
 
 
 try:
-    substances = query(url=url, params={"max" : 1})
+    substances = query(url=url, params={"max" :  1 if max_substances is None else max_substances})
     _json = substances.model_dump(exclude_none=False)
     new_substances = Substances.model_construct(**_json)
     # new_substances = Substances(**_json)
@@ -69,7 +71,7 @@ try:
     assert substances == new_substances
 
     file = os.path.join(product["json"])
-    print(file)
+    # print(file)
     with open(file, 'w', encoding='utf-8') as file:
         file.write(substances.model_dump_json(exclude_none=True))  
     for s in substances.substance:
@@ -85,16 +87,16 @@ try:
             effectarrays_only, df = pa.convert_effectrecords2array()
             _file = os.path.join(product["nexus"], "study_{}.xlsx".format(pa.uuid))
             df.to_excel(_file)
-            print(_file)
+            # print(_file)
             # display(df.dropna(axis=1, how="all"))
-            for ea in effectarrays_only:
-                print(">>>", ea.endpoint, ea.endpointtype)
-                for axis in ea.axes:
-                    print(axis, ea.axes[axis])
-                print(">signal> ", ea.signal)
-                for c in ea.conditions:
-                    print(c, ea.conditions[c])
-            break
+            # for ea in effectarrays_only:
+            #    print(">>>", ea.endpoint, ea.endpointtype)
+            #    for axis in ea.axes:
+            #        print(axis, ea.axes[axis])
+            #    print(">signal> ", ea.signal)
+            #    for c in ea.conditions:
+            #        print(c, ea.conditions[c])
+            # break
     write_studies_nexus(substances, single_file=True)
 except Exception as x:
     traceback.print_exc()

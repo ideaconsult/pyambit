@@ -13,6 +13,7 @@ from pyambit.ambit_deco import add_ambitmodel_method
 from pyambit.datamodel import (
     Composition,
     EffectArray,
+    EffectRecord,
     MetaValueArray,
     ProtocolApplication,
     Study,
@@ -621,7 +622,7 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
         for effect in effectarrays_only:
             index = index + 1
             _group_key = (
-                "DEFAULT" if effect.endpointtype is None else effect.endpointtype
+                "DEFAULT" if effect.endpointtype is None else effect.endpointtype.upper().replace(" ", "_")
             )
             if _group_key not in entry:
                 if effect.endpointtype in ("RAW_DATA", "RAW DATA", "RAW", "raw data"):

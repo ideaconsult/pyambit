@@ -869,6 +869,7 @@ class ProtocolApplication(AmbitModel):
                 k: Value(**v) if isinstance(v, dict) else v
                 for k, v in data["parameters"].items()
             }
+            
         if "citation" in data and isinstance(data["citation"], dict):
             data["citation"] = Citation(**data["citation"])
         if "effects" in data:
@@ -1102,8 +1103,8 @@ class ProtocolApplication(AmbitModel):
                                         # print(
                                         #     _f['loValue'].apply(type).value_counts()
                                         # )
-                                        print(x)
-                                        print(_col, _f["loValue"], self.uuid)
+                                        traceback.print_exc()
+                                        #print(_col, _f["loValue"], self.uuid)
 
                                     loValues = (
                                         None

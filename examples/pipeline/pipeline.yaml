@@ -13,3 +13,4 @@ tasks:
       hierarchy: "{{nexus_hierarchy}}"
       single_nexus: "{{single_nexus}}"
       max_substances: "{{max_substances}}"
+      papp_query: "{{papp_query}}"

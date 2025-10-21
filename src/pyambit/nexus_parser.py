@@ -184,7 +184,12 @@ class Nexus2Ambit:
                 if isinstance(data, nx.NXdata):
                     if self.index_only:
                         papp.effects.append(
-                            self.parse_effect(endpointtype_name, data, relative_path,  nxentry["definition"].nxvalue)
+                            self.parse_effect(
+                                endpointtype_name,
+                                data,
+                                relative_path,
+                                nxentry["definition"].nxvalue,
+                            )
                         )
                     else:
                         raise NotImplementedError("Not implemented")
@@ -192,7 +197,11 @@ class Nexus2Ambit:
         return papp
 
     def parse_effect(
-        self, endpointtype_name, data: nx.NXentry, relative_path: str, nxdefinition:str=None
+        self,
+        endpointtype_name,
+        data: nx.NXentry,
+        relative_path: str,
+        nxdefinition: str = None,
     ) -> EffectRecord:
         if self.index_only:
             return EffectRecord(

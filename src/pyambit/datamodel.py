@@ -354,7 +354,7 @@ class EffectRecord(AmbitModel):
     endpointSynonyms: List[str] = Field(default_factory=list)
     # endpointSynonyms: Optional[Union[None, List[str]]] = None
     sampleID: Optional[str] = None
-    
+
     @field_validator("endpoint", mode="before")
     @classmethod
     def clean_endpoint(cls, v):
@@ -869,7 +869,7 @@ class ProtocolApplication(AmbitModel):
                 k: Value(**v) if isinstance(v, dict) else v
                 for k, v in data["parameters"].items()
             }
-            
+
         if "citation" in data and isinstance(data["citation"], dict):
             data["citation"] = Citation(**data["citation"])
         if "effects" in data:
@@ -1104,7 +1104,7 @@ class ProtocolApplication(AmbitModel):
                                         #     _f['loValue'].apply(type).value_counts()
                                         # )
                                         traceback.print_exc()
-                                        #print(_col, _f["loValue"], self.uuid)
+                                        # print(_col, _f["loValue"], self.uuid)
 
                                     loValues = (
                                         None

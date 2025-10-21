@@ -1,18 +1,19 @@
-import requests
-from pyambit.datamodel import Substances, Study, EffectRecord
-import nexusformat.nexus.tree as nx
+import ast
 import os.path
 import traceback
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import nexusformat.nexus.tree as nx
+import numpy as np
+import pandas as pd
+import requests
+import seaborn as sns
+from IPython.display import display, HTML
+
 # to_nexus is not added without this import
 from pyambit import nexus_writer
-from pathlib import Path
-from IPython.display import display, HTML
-import pandas as pd
-import ast
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
-
+from pyambit.datamodel import EffectRecord, Study, Substances
 
 # + tags=["parameters"]
 upstream = []
@@ -27,10 +28,9 @@ papp_query = None
 Path(product["nexus"]).mkdir(parents=True, exist_ok=True)
 
 
-def query(url="https://apps.ideaconsult.net/gracious/substance/",
-          params = {"max" : 1}):
+def query(url="https://apps.ideaconsult.net/gracious/substance/", params={"max": 1}):
     substances = None
-    headers = {'Accept': 'application/json'}
+    headers = {"Accept": "application/json"}
     result = requests.get(url, params=params, headers=headers)
     if result.status_code == 200:
         response = result.json()
@@ -39,7 +39,7 @@ def query(url="https://apps.ideaconsult.net/gracious/substance/",
             url_study = "{}/study?max=10000".format(substance.URI)
             if papp_query is not None:
                 url_study = url_study + "&" + papp_query
-            #print(url_study)
+            # print(url_study)
             study = requests.get(url_study, headers=headers)
             if study.status_code == 200:
                 response_study = study.json()
@@ -64,9 +64,9 @@ def write_studies_nexus(substances, single_file=single_nexus, hierarchy=False):
                     study.to_nexus(nxroot)
                     nxroot.save(file, mode="w")
                 except Exception as err:
-                    #print("error",file,str(err))
+                    # print("error",file,str(err))
                     traceback.print_exc()
-                #break
+                # break
 
 
 def plot_dose_response(
@@ -148,7 +148,9 @@ def plot_dose_response(
     x_col, series_col = "_conc_value", "_time_value"
     xunit_col, series_unit_col = "_conc_unit", "_time_unit"
 
-    if time_col is not None and df["_time_value"].nunique(dropna=True) > df["_conc_value"].nunique(dropna=True):
+    if time_col is not None and df["_time_value"].nunique(dropna=True) > df[
+        "_conc_value"
+    ].nunique(dropna=True):
         x_col, series_col = "_time_value", "_conc_value"
         xunit_col, series_unit_col = "_time_unit", "_conc_unit"
         _ = xlabel
@@ -166,18 +168,20 @@ def plot_dose_response(
     summary = (
         df.groupby(
             [endpoint_col, endpoint_type_col, response_unit_col, series_col, x_col],
-            dropna=False
+            dropna=False,
         )
         .agg(
             mean_response=("response", "mean"),
             sd_response=("response", "std"),
-            n=("response", "count")
+            n=("response", "count"),
         )
         .reset_index()
     )
 
     # --- Determine unique facets (endpoint+type+unit combos, keeping NaNs) ---
-    facet_keys = summary[[endpoint_col, endpoint_type_col, response_unit_col]].drop_duplicates(ignore_index=True)
+    facet_keys = summary[
+        [endpoint_col, endpoint_type_col, response_unit_col]
+    ].drop_duplicates(ignore_index=True)
     n_facets = len(facet_keys)
 
     fig, axes = plt.subplots(1, n_facets, figsize=(5 * n_facets, 4), sharey=False)
@@ -192,8 +196,14 @@ def plot_dose_response(
 
         facet_data = summary[
             (summary[endpoint_col] == endpoint)
-            & (summary[endpoint_type_col].eq(e_type) | (summary[endpoint_type_col].isna() & pd.isna(e_type)))
-            & (summary[response_unit_col].eq(e_unit) | (summary[response_unit_col].isna() & pd.isna(e_unit)))
+            & (
+                summary[endpoint_type_col].eq(e_type)
+                | (summary[endpoint_type_col].isna() & pd.isna(e_type))
+            )
+            & (
+                summary[response_unit_col].eq(e_unit)
+                | (summary[response_unit_col].isna() & pd.isna(e_unit))
+            )
         ]
 
         # plot each "series_col" group (e.g., exposure time)
@@ -310,9 +320,7 @@ def plot_chemical_concentrations(
 
     n_facets = len(combos)
     fig, axes = plt.subplots(
-        1, n_facets,
-        figsize=(figsize[0] * n_facets, figsize[1]),
-        squeeze=False
+        1, n_facets, figsize=(figsize[0] * n_facets, figsize[1]), squeeze=False
     )
     axes = axes.flatten()
 
@@ -370,7 +378,9 @@ def plot_chemical_concentrations(
 
 
 try:
-    substances = query(url=url, params={"max" :  1 if max_substances is None else max_substances})
+    substances = query(
+        url=url, params={"max": 1 if max_substances is None else max_substances}
+    )
     _json = substances.model_dump(exclude_none=False)
     new_substances = Substances.model_construct(**_json)
     # new_substances = Substances(**_json)
@@ -379,26 +389,26 @@ try:
 
     file = os.path.join(product["json"])
     # print(file)
-    with open(file, 'w', encoding='utf-8') as file:
-        file.write(substances.model_dump_json(exclude_none=True))  
-    df_papps = None    
+    with open(file, "w", encoding="utf-8") as file:
+        file.write(substances.model_dump_json(exclude_none=True))
+    df_papps = None
     for s in substances.substance:
         if s.study is None:
             continue
         for pa in s.study:
-            method = pa.parameters.get("E.method",None)
-            cell = pa.parameters.get("E.cell_type","")
+            method = pa.parameters.get("E.method", None)
+            cell = pa.parameters.get("E.cell_type", "")
             for ea in pa.effects:
                 ea.conditions = EffectRecord.clean_parameters(ea.conditions)
                 _tagc = "CONCENTRATION"
                 # this allows to split numeric concentrations into nxdata
-                if _tagc in ea.conditions and (isinstance(ea.conditions[_tagc],str)):
+                if _tagc in ea.conditions and (isinstance(ea.conditions[_tagc], str)):
                     if "TREATMENT" not in ea.conditions:
                         ea.conditions["TREATMENT"] = "control"
-                            
+
             effectarrays_only, df = pa.convert_effectrecords2array()
             _file = os.path.join(product["nexus"], "study_{}.xlsx".format(pa.uuid))
-            
+
             df["papp_uuid"] = pa.uuid
             df["investigation_uuid"] = pa.investigation_uuid
             df["assay_uuid"] = pa.assay_uuid
@@ -418,38 +428,50 @@ try:
 
                     summary = plot_dose_response(
                         df,
-                        concentration_col  = concentration_col,
-                        time_col = time_col,
-                        response_col  = "loValue",
-                        response_unit_col  = "unit",
-                        endpoint_col  = "endpoint",
-                        logscale  = False,
-                        title = f"[{s.name}] {pa.protocol.category.code if method is None else method} {cell} ({pa.citation.owner})\n{_input_file}",
-                        show = True,
-                        savepath = None,
-                        xlabel = "concentration",
-                        ylabel = "time"
+                        concentration_col=concentration_col,
+                        time_col=time_col,
+                        response_col="loValue",
+                        response_unit_col="unit",
+                        endpoint_col="endpoint",
+                        logscale=False,
+                        title=f"[{s.name}] {pa.protocol.category.code if method is None else method} {cell} ({pa.citation.owner})\n{_input_file}",
+                        show=True,
+                        savepath=None,
+                        xlabel="concentration",
+                        ylabel="time",
                     )
-                except Exception :
+                except Exception:
                     print(pa.uuid)
                     traceback.print_exc()
             elif "CONCENTRATION" in df["endpoint"].unique():
-                plot_chemical_concentrations(df,
-                        title = f"[{s.name}] {pa.protocol.category.code if method is None else method} ({pa.citation.owner})\n{_input_file}")
+                plot_chemical_concentrations(
+                    df,
+                    title=f"[{s.name}] {pa.protocol.category.code if method is None else method} ({pa.citation.owner})\n{_input_file}",
+                )
             else:
-                print(f"Not dose response [{pa.uuid} {s.name}] {method} ({pa.citation.owner})  {df.columns} {df.shape}")
-            
-            df = df[["substance_uuid", "assay_uuid", "papp_uuid", "investigation_uuid"]].drop_duplicates()
-            #print(df.shape)
+                print(
+                    f"Not dose response [{pa.uuid} {s.name}] {method} ({pa.citation.owner})  {df.columns} {df.shape}"
+                )
+
+            df = df[
+                ["substance_uuid", "assay_uuid", "papp_uuid", "investigation_uuid"]
+            ].drop_duplicates()
+            # print(df.shape)
             df["papp"] = pa.model_dump_json()
             df["papp_topcategory"] = pa.protocol.topcategory
             df["papp_category"] = pa.protocol.category.code
             df["papp_endpoint"] = pa.protocol.endpoint
-            df["papp_guideline"] = None if pa.protocol.guideline is None else "".join(pa.protocol.guideline)
+            df["papp_guideline"] = (
+                None
+                if pa.protocol.guideline is None
+                else "".join(pa.protocol.guideline)
+            )
             df["papp_citation_title"] = pa.citation.title
             df["papp_citation_owner"] = pa.citation.owner
             df["papp_citation_year"] = pa.citation.year
-            df_papps = df if df_papps is None else pd.concat([df_papps, df], ignore_index=True)
+            df_papps = (
+                df if df_papps is None else pd.concat([df_papps, df], ignore_index=True)
+            )
             # print(_file)
             # display(df.dropna(axis=1, how="all"))
             # for ea in effectarrays_only:
@@ -459,8 +481,10 @@ try:
             #    print(">signal> ", ea.signal)
             #    for c in ea.conditions:
             #        print(c, ea.conditions[c])
-            #break
+            # break
     write_studies_nexus(substances, single_file=single_nexus, hierarchy=hierarchy)
-    df_papps.to_excel(os.path.join(product["nexus"], "protocol_applications.xlsx"), index=False)
+    df_papps.to_excel(
+        os.path.join(product["nexus"], "protocol_applications.xlsx"), index=False
+    )
 except Exception as x:
     traceback.print_exc()

@@ -17,7 +17,7 @@ def spe2effect(
     unit="cm-1",
     endpointtype="RAW_DATA",
     meta: Dict = None,
-    nx_name=None
+    nx_name=None,
 ):
     try:
         signal = meta["@signal"]
@@ -33,7 +33,7 @@ def spe2effect(
         endpointtype=endpointtype,
         signal=mx.ValueArray(values=y, unit="Arbitr.Units"),
         axes=data_dict,
-        nx_name=nx_name
+        nx_name=nx_name,
     )
 
 
@@ -80,13 +80,21 @@ def configure_papp(
         if key_l == "grating":
             papp.parameters["instrument/monochromator/grating/period"] = meta[key]
         elif key_l in ["pin_hole_size", "pin hole size"]:
-            papp.parameters["instrument/objective_lens/numerical_aperture/size"] = meta[key]
-        elif key_l in ["acquisition_time", "intigration times(ms)", "integration times(ms)", "integration time", "integ_time"]:
+            papp.parameters["instrument/objective_lens/numerical_aperture/size"] = meta[
+                key
+            ]
+        elif key_l in [
+            "acquisition_time",
+            "intigration times(ms)",
+            "integration times(ms)",
+            "integration time",
+            "integ_time",
+        ]:
             papp.parameters["instrument/detector/count_time"] = meta[key]
         elif key_l in ["accumulation"]:
             papp.parameters["instrument/detector/exposure_time"] = meta[key]
         elif key_l in ["delay (s)"]:
-            papp.parameters["instrument/detector/delay_time"] = meta[key]            
+            papp.parameters["instrument/detector/delay_time"] = meta[key]
         elif not key.startswith("@"):
             papp.parameters["/parameters/{}".format(key)] = meta[key]
 

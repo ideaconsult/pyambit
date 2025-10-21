@@ -433,12 +433,13 @@ def to_nexus(  # noqa: F811
             # print(ce.component.values)
             # print(ce.proportion)
             # print(ce.relation)
-            _path = "{}/{}_{}".format(substance_id, ce.relation.replace("HAS_", ""), index)
+            _path = "{}/{}_{}".format(
+                substance_id, ce.relation.replace("HAS_", ""), index
+            )
             nx_root[_path] = component
             if ce.component.values is not None:
                 for key in ce.component.values.keys():
-                    nx_root[_path].attrs[key] = ce.component.values[key] 
-
+                    nx_root[_path].attrs[key] = ce.component.values[key]
 
     if substance.study is not None:
         for papp in substance.study:
@@ -502,7 +503,7 @@ def effectarray2data(effect: EffectArray):
                 long_name="{}{}{}".format(
                     key,
                     "" if effect.axes[key].unit is None else "/",
-                    "" if effect.axes[key].unit is None else effect.axes[key].unit
+                    "" if effect.axes[key].unit is None else effect.axes[key].unit,
                 ).strip(),
                 errors=effect.axes[key].errorValue,
                 units=effect.axes[key].unit,
@@ -515,8 +516,8 @@ def effectarray2data(effect: EffectArray):
         units=effect.signal.unit,
         long_name="{}{}{}".format(
             effect.endpoint,
-            "" if effect.signal.unit is None else "/", 
-            "" if effect.signal.unit is None else effect.signal.unit
+            "" if effect.signal.unit is None else "/",
+            "" if effect.signal.unit is None else effect.signal.unit,
         ).strip(),
     )
     if effect.signal.conditions is not None:
@@ -622,7 +623,9 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
         for effect in effectarrays_only:
             index = index + 1
             _group_key = (
-                "DEFAULT" if effect.endpointtype is None else effect.endpointtype.upper().replace(" ", "_")
+                "DEFAULT"
+                if effect.endpointtype is None
+                else effect.endpointtype.upper().replace(" ", "_")
             )
             if _group_key not in entry:
                 if effect.endpointtype in ("RAW_DATA", "RAW DATA", "RAW", "raw data"):

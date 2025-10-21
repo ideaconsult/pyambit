@@ -1099,7 +1099,7 @@ class ProtocolApplication(AmbitModel):
 
                                     try:
                                         _f["loValue"] = _f["loValue"].fillna(_tmp[_col])
-                                    except Exception as x:
+                                    except Exception:
                                         # print(
                                         #     _f['loValue'].apply(type).value_counts()
                                         # )

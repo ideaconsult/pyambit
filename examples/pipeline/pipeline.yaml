@@ -1,5 +1,6 @@
+---
 meta:
-    extract_upstream: False
+  extract_upstream: false
 
 tasks:
   - source: extract.py

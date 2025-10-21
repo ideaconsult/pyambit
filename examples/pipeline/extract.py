@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 import requests
 import seaborn as sns
-from IPython.display import display, HTML
+from IPython.display import display, HTML  # noqa: F401
 
 # to_nexus is not added without this import
-from pyambit import nexus_writer
+from pyambit import nexus_writer  # noqa: F401
 from pyambit.datamodel import EffectRecord, Study, Substances
 
 # + tags=["parameters"]
@@ -63,7 +63,7 @@ def write_studies_nexus(substances, single_file=single_nexus, hierarchy=False):
                 try:
                     study.to_nexus(nxroot)
                     nxroot.save(file, mode="w")
-                except Exception as err:
+                except Exception as err:  # noqa: F841
                     # print("error",file,str(err))
                     traceback.print_exc()
                 # break
@@ -434,7 +434,7 @@ try:
                         response_unit_col="unit",
                         endpoint_col="endpoint",
                         logscale=False,
-                        title=f"[{s.name}] {pa.protocol.category.code if method is None else method} {cell} ({pa.citation.owner})\n{_input_file}",
+                        title=f"[{s.name}] {pa.protocol.category.code if method is None else method} {cell} ({pa.citation.owner})\n{_input_file}",  # noqa: B950
                         show=True,
                         savepath=None,
                         xlabel="concentration",
@@ -446,11 +446,11 @@ try:
             elif "CONCENTRATION" in df["endpoint"].unique():
                 plot_chemical_concentrations(
                     df,
-                    title=f"[{s.name}] {pa.protocol.category.code if method is None else method} ({pa.citation.owner})\n{_input_file}",
+                    title=f"[{s.name}] {pa.protocol.category.code if method is None else method} ({pa.citation.owner})\n{_input_file}",  # noqa: B950
                 )
             else:
                 print(
-                    f"Not dose response [{pa.uuid} {s.name}] {method} ({pa.citation.owner})  {df.columns} {df.shape}"
+                    f"Not dose response [{pa.uuid} {s.name}] {method} ({pa.citation.owner})  {df.columns} {df.shape}"  # noqa: B950
                 )
 
             df = df[
@@ -486,5 +486,5 @@ try:
     df_papps.to_excel(
         os.path.join(product["nexus"], "protocol_applications.xlsx"), index=False
     )
-except Exception as x:
+except Exception:
     traceback.print_exc()

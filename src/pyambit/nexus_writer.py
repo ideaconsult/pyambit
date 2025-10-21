@@ -13,7 +13,6 @@ from pyambit.ambit_deco import add_ambitmodel_method
 from pyambit.datamodel import (
     Composition,
     EffectArray,
-    EffectRecord,
     MetaValueArray,
     ProtocolApplication,
     Study,

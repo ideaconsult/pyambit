@@ -17,6 +17,7 @@ def spe2effect(
     unit="cm-1",
     endpointtype="RAW_DATA",
     meta: Dict = None,
+    nx_name=None,
 ):
     try:
         signal = meta["@signal"]
@@ -30,8 +31,9 @@ def spe2effect(
     return mx.EffectArray(
         endpoint=signal,
         endpointtype=endpointtype,
-        signal=mx.ValueArray(values=y, unit="count"),
+        signal=mx.ValueArray(values=y, unit="Arbitr.Units"),
         axes=data_dict,
+        nx_name=nx_name,
     )
 
 
@@ -74,7 +76,26 @@ def configure_papp(
         "/definition": "NXraman",
     }
     for key in list(meta.keys()):
-        if not key.startswith("@"):
+        key_l = key.lower()
+        if key_l == "grating":
+            papp.parameters["instrument/monochromator/grating/period"] = meta[key]
+        elif key_l in ["pin_hole_size", "pin hole size"]:
+            papp.parameters["instrument/objective_lens/numerical_aperture/size"] = meta[
+                key
+            ]
+        elif key_l in [
+            "acquisition_time",
+            "intigration times(ms)",
+            "integration times(ms)",
+            "integration time",
+            "integ_time",
+        ]:
+            papp.parameters["instrument/detector/count_time"] = meta[key]
+        elif key_l in ["accumulation"]:
+            papp.parameters["instrument/detector/exposure_time"] = meta[key]
+        elif key_l in ["delay (s)"]:
+            papp.parameters["instrument/detector/delay_time"] = meta[key]
+        elif not key.startswith("@"):
             papp.parameters["/parameters/{}".format(key)] = meta[key]
 
     papp.uuid = "{}-{}".format(
@@ -110,7 +131,7 @@ def spe2ambit(
     sample_provider="CHARISMA",
     prefix="CRMA",
     endpointtype="RAW_DATA",
-    unit="cm-1",
+    unit="cm¯¹",
     papp=None,
 ):
 
@@ -122,6 +143,7 @@ def spe2ambit(
             ),
             effects=[],
         )
+        papp.nx_name = provider
         configure_papp(
             papp,
             instrument=instrument,
@@ -134,7 +156,7 @@ def spe2ambit(
             prefix=prefix,
             meta=meta,
         )
-    papp.effects.append(spe2effect(x, y, unit, endpointtype, meta))
+    papp.effects.append(spe2effect(x, y, unit, endpointtype, meta, nx_name=sample))
     return papp
 
 

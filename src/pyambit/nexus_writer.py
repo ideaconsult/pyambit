@@ -432,9 +432,13 @@ def to_nexus(  # noqa: F811
             # print(ce.component.values)
             # print(ce.proportion)
             # print(ce.relation)
-            nx_root[
-                "{}/{}_{}".format(substance_id, ce.relation.replace("HAS_", ""), index)
-            ] = component
+            _path = "{}/{}_{}".format(
+                substance_id, ce.relation.replace("HAS_", ""), index
+            )
+            nx_root[_path] = component
+            if ce.component.values is not None:
+                for key in ce.component.values.keys():
+                    nx_root[_path].attrs[key] = ce.component.values[key]
 
     if substance.study is not None:
         for papp in substance.study:
@@ -495,8 +499,10 @@ def effectarray2data(effect: EffectArray):
             nx.tree.NXfield(
                 effect.axes[key].values,
                 name=key.replace("/", "_"),
-                long_name="{} {}".format(
-                    key, "" if effect.axes[key].unit is None else effect.axes[key].unit
+                long_name="{}{}{}".format(
+                    key,
+                    "" if effect.axes[key].unit is None else "/",
+                    "" if effect.axes[key].unit is None else effect.axes[key].unit,
                 ).strip(),
                 errors=effect.axes[key].errorValue,
                 units=effect.axes[key].unit,
@@ -507,8 +513,10 @@ def effectarray2data(effect: EffectArray):
         effect.signal.values,
         name=effect.endpoint,
         units=effect.signal.unit,
-        long_name="{} {}".format(
-            effect.endpoint, "" if effect.signal.unit is None else effect.signal.unit
+        long_name="{}{}{}".format(
+            effect.endpoint,
+            "" if effect.signal.unit is None else "/",
+            "" if effect.signal.unit is None else effect.signal.unit,
         ).strip(),
     )
     if effect.signal.conditions is not None:
@@ -540,9 +548,10 @@ def effectarray2data(effect: EffectArray):
 
             if _tmp.size > 0:
                 _auxname = a.replace("/", "_")
-                long_name = "{} ({}) {}".format(
+                long_name = "{} ({}){}{}".format(
                     effect.endpoint,
                     a,
+                    "" if effect.signal.unit is None else "/",
                     "" if effect.signal.unit is None else effect.signal.unit,
                 ).strip()
                 if _auxname == "textValue":
@@ -613,7 +622,9 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
         for effect in effectarrays_only:
             index = index + 1
             _group_key = (
-                "DEFAULT" if effect.endpointtype is None else effect.endpointtype
+                "DEFAULT"
+                if effect.endpointtype is None
+                else effect.endpointtype.upper().replace(" ", "_")
             )
             if _group_key not in entry:
                 if effect.endpointtype in ("RAW_DATA", "RAW DATA", "RAW", "raw data"):

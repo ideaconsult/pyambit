@@ -351,7 +351,8 @@ class EffectRecord(AmbitModel):
     conditions: Optional[Dict[str, Union[str, int, float, Value, None]]] = None
     idresult: Optional[int] = None
     endpointGroup: Optional[int] = None
-    endpointSynonyms: List[str] = None
+    endpointSynonyms: List[str] = Field(default_factory=list)
+    # endpointSynonyms: Optional[Union[None, List[str]]] = None
     sampleID: Optional[str] = None
 
     @field_validator("endpoint", mode="before")
@@ -430,9 +431,7 @@ class EffectRecord(AmbitModel):
             if value is None:
                 continue
             new_key = key.replace("/", "_") if "/" in key else key
-            if value is None:
-                pass
-            elif key in [
+            if key in [
                 "REPLICATE",
                 "EXPERIMENT",
                 "BIOLOGICAL_REPLICATE",
@@ -451,7 +450,10 @@ class EffectRecord(AmbitModel):
                     # this is to extract nuber from e.g. 'Replicate 1'
                     match = re.search(r"[+-]?\d+(?:\.\d+)?", value)
                     if match:
-                        conditions[new_key] = match.group()
+                        try:
+                            conditions[new_key] = int(match.group())
+                        except Exception:
+                            conditions[new_key] = match.group()
 
             else:
                 conditions[new_key] = value
@@ -867,6 +869,7 @@ class ProtocolApplication(AmbitModel):
                 k: Value(**v) if isinstance(v, dict) else v
                 for k, v in data["parameters"].items()
             }
+
         if "citation" in data and isinstance(data["citation"], dict):
             data["citation"] = Citation(**data["citation"])
         if "effects" in data:
@@ -1096,12 +1099,12 @@ class ProtocolApplication(AmbitModel):
 
                                     try:
                                         _f["loValue"] = _f["loValue"].fillna(_tmp[_col])
-                                    except Exception as x:
+                                    except Exception:
                                         # print(
                                         #     _f['loValue'].apply(type).value_counts()
                                         # )
-                                        print(x)
-                                        print(_col, _f["loValue"], self.uuid)
+                                        traceback.print_exc()
+                                        # print(_col, _f["loValue"], self.uuid)
 
                                     loValues = (
                                         None

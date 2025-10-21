@@ -28,7 +28,9 @@ papp_query = None
 Path(product["nexus"]).mkdir(parents=True, exist_ok=True)
 
 
-def query(url="https://apps.ideaconsult.net/gracious/substance/", params={"max": 1}):
+def query(url="https://apps.ideaconsult.net/gracious/substance/", params=None):
+    if params is None:
+        params = {"max": 1}
     substances = None
     headers = {"Accept": "application/json"}
     result = requests.get(url, params=params, headers=headers)

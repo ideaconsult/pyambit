@@ -48,3 +48,37 @@ Design notes:
 - A study whose dose axis is `DOSE` converts to an `EffectArray` with a proper axis (no external bridge needed).
 - `CONCENTRATION` studies are unchanged.
 - The `ramanchada-api` `_bridge_dose_axis` stopgap can then be removed.
+
+---
+
+## Related issues found while wiring the dose–response chart
+
+### (a) `EffectArray.model_dump_json` crashes on numpy scalars
+The `serialize` default in `EffectArray.model_dump_json` returns unknown objects unchanged,
+so a numpy scalar in a condition (e.g. `NUMBER_OF_REPLICATES` → `np.int64`) makes
+`json.dumps` recurse and raise **"Circular reference detected"**. Real ENM oxidative-stress
+data hits this, so the whole study fails to convert.
+- Fix: the default should coerce `np.generic` → `.item()` and `np.ndarray` → `.tolist()`.
+- Interim: `ramanchada-api` `convertor_service._earray_to_dict` serializes numpy-safely.
+
+### (b) Numeric non-dose conditions become spurious axes
+`convert_effectrecords2array` turns every numeric condition into an axis, so
+`NUMBER_OF_REPLICATES` becomes a plot axis alongside `CONCENTRATION` (2-D signal, wrong X).
+Replicate/blank counts should be excluded from axes (treated as replicates → mean±SD), per
+the category config above (e.g. a `replicate` role for `NUMBER_OF_REPLICATES`, `replicate`).
+
+### (c) Control designation field varies
+Controls are flagged by different condition keys across datasets — `Treatment` in some,
+**`material`** ("Positive control"/"Negative control"/"none") in ENM oxidative stress. The
+category config should declare which condition carries the control role.
+
+### (d) Dose series split across protocol applications == data import issue
+Observed in ENM oxidative-stress data: each concentration is imported as a **separate**
+protocol application (its own `document_uuid`, holding one dose level + controls), so no
+single papp contains the curve. This is an **import-quality problem**, not a conversion
+feature: correctly imported, one protocol application holds the whole concentration series
+as its `effects[]`, and the per-`document_uuid` model plots the curve directly.
+- Preferred fix: correct the import so one dose–response experiment = one `document_uuid`.
+- Only if mis-imported data must be tolerated: optionally aggregate papps sharing an
+  `investigation_uuid` / `assay_uuid` into one `EffectArray` (the deferred "same
+  document_uuid" grouping) — a workaround, not the target state.

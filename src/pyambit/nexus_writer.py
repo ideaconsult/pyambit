@@ -25,6 +25,19 @@ from pyambit.datamodel import (
 # tbd parameterize
 
 
+def _nx_group_for_class(nx_class: str) -> nx.NXgroup:
+    """Instantiate the real NeXus group class for `nx_class` (e.g. "NXbeam"),
+    falling back to a generic NXgroup for anything nexusformat doesn't
+    recognize. nexusformat.nexus dynamically exposes an NXgroup subclass for
+    any legal NX* base class name (getattr-based metaprogramming), so this is
+    just a guarded attribute lookup, not a hardcoded class table.
+    """
+    cls = getattr(nx, nx_class, None)
+    if cls is None:
+        return nx.NXgroup()
+    return cls()
+
+
 def param_lookup(prm, value):
     target = ["environment"]
     _prmlo = prm.lower()
@@ -198,26 +211,43 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 "guideline"
             ] = papp.protocol.guideline
             # definition is usually reference to the Nexus XML definition
-            # ambit category codes and method serve similar role
-            nx_root["{}/definition".format(entry_id)] = (
-                "/AMBIT_DATAMODEL/{}/{}/{}".format(
-                    papp.protocol.topcategory,
-                    papp.protocol.category.code,
-                    papp.protocol.guideline,
-                )
+            # ambit category codes and method serve similar role.
+            #
+            # Exception: if papp.parameters already explicitly declares this
+            # entry as NXraman (papp.parameters["/definition"] == "NXraman",
+            # the exact signal NXRamanProtocolApplication.sync_parameters()
+            # sets), skip the AMBIT_DATAMODEL rewrite entirely so an
+            # explicitly-set Raman /definition survives to the written file.
+            # Scoped narrowly to this one literal value - any other explicit
+            # /definition (including other AMBIT-specific strings) still gets
+            # overwritten exactly as before, so every other protocol/consumer
+            # (including the generic AMBIT-JSON-upload path) is unaffected.
+            _is_nxraman_entry = (
+                papp.parameters is not None
+                and papp.parameters.get("/definition", papp.parameters.get("definition"))
+                == "NXraman"
             )
+            if not _is_nxraman_entry:
+                nx_root["{}/definition".format(entry_id)] = (
+                    "/AMBIT_DATAMODEL/{}/{}/{}".format(
+                        papp.protocol.topcategory,
+                        papp.protocol.category.code,
+                        papp.protocol.guideline,
+                    )
+                )
 
             if papp.parameters is not None:
                 for tag in ["E.method", "ASSAY"]:
                     if tag in papp.parameters:
                         experiment_documentation.attrs["method"] = papp.parameters[tag]
-                        nx_root["{}/definition".format(entry_id)] = (
-                            "/AMBIT_DATAMODEL/{}/{}/{}".format(
-                                papp.protocol.topcategory,
-                                papp.protocol.category.code,
-                                papp.parameters[tag],
+                        if not _is_nxraman_entry:
+                            nx_root["{}/definition".format(entry_id)] = (
+                                "/AMBIT_DATAMODEL/{}/{}/{}".format(
+                                    papp.protocol.topcategory,
+                                    papp.protocol.category.code,
+                                    papp.parameters[tag],
+                                )
                             )
-                        )
 
     except Exception as err:
         raise Exception(
@@ -274,20 +304,54 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         if substance_id not in nx_root:
             nx_root[substance_id] = nx.NXsample()
             nx_root[substance_id].attrs["uuid"] = papp.owner.substance.uuid
-        nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(substance_id)
+        # Absolute target ("/substance/...", not "substance/..."): NXlink
+        # resolves a relative target against its OWN parent group
+        # (nx.NXlink.internal_link), not the root - since this link lives
+        # under "{entry_id}/sample/", a relative "substance/{uuid}" target
+        # sends resolution on a walk that (with nexusformat 2.0.0, given many
+        # ProtocolApplications sharing one owner substance, as in
+        # study.json's fixture) recurses without terminating. Pre-existing
+        # bug, reproduces on unmodified code; unrelated to but found during
+        # NXraman work.
+        nx_root["{}/sample/substance".format(entry_id)] = nx.NXlink(
+            "/{}".format(substance_id)
+        )
+
+    nx_class_hints = {}
+    nxraman = getattr(papp, "nxraman", None)
+    if nxraman is not None:
+        from pyambit.nexus_models.flatten import flatten_nx_model
+
+        _, nx_class_hints = flatten_nx_model(nxraman)
 
     if papp.parameters is not None:
         for prm_path in papp.parameters:
             try:
                 value = papp.parameters[prm_path]
-                prms = prm_path.split("/")
-                if len(prms) == 1:
+                # Strip leading empty segments from a leading "/" (e.g.
+                # "/definition".split("/") == ["", "definition"]) - a bare
+                # parser fix, independent of any particular protocol/caller:
+                # it can only turn a currently-broken path (which created a
+                # stray ""-named group) into the correct one, never break an
+                # already-working path, since no legitimate path was ever
+                # relying on a leading empty segment.
+                prms = [p for p in prm_path.split("/") if p != ""]
+                if not prms:
+                    continue
+                if len(prms) == 1 and "/" not in prm_path:
                     prms = param_lookup(prm_path, value)
                 # print(prms,prms[:-1])
                 _entry = nx_root[entry_id]
+                group_path_so_far = ""
                 for _group in prms[:-1]:
+                    group_path_so_far = (
+                        f"{group_path_so_far}/{_group}" if group_path_so_far else _group
+                    )
                     if _group not in _entry:
-                        if _group == "instrument":
+                        hinted_class = nx_class_hints.get(group_path_so_far)
+                        if hinted_class is not None:
+                            _entry[_group] = _nx_group_for_class(hinted_class)
+                        elif _group == "instrument":
                             _entry[_group] = nx.NXinstrument()
                         elif _group == "environment":
                             _entry[_group] = nx.NXenvironment()

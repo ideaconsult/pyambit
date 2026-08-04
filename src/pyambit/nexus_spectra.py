@@ -5,10 +5,50 @@ from typing import Dict
 import nexusformat.nexus.tree as nx
 import numpy as np
 import numpy.typing as npt
+from pydantic import Field as PydanticField
 
 import pyambit.datamodel as mx
 
+from pyambit.nexus_models.appdefs.nx_raman import NXRaman
+from pyambit.nexus_models.base.nx_beam import NXBeam
+from pyambit.nexus_models.base.nx_detector import NXDetector
+from pyambit.nexus_models.base.nx_fabrication import NXFabrication
+from pyambit.nexus_models.base.nx_grating import NXGrating
+from pyambit.nexus_models.base.nx_instrument import NXInstrument
+from pyambit.nexus_models.base.nx_monochromator import NXMonochromator
+from pyambit.nexus_models.flatten import flatten_nx_model
 from pyambit.nexus_writer import to_nexus  # noqa: F401
+
+
+class NXRamanProtocolApplication(mx.ProtocolApplication):
+    """A ProtocolApplication carrying a typed NXraman model (see
+    pyambit.nexus_models.appdefs.nx_raman.NXRaman) alongside the inherited
+    free-form `parameters` dict.
+
+    `nxraman` is the single source of truth for NXraman-schema values; use
+    `sync_parameters()` (or `configure_papp`, which calls it) to flatten it
+    into `parameters` via `flatten_nx_model` before writing to NeXus -
+    `parameters` is not kept in sync automatically on every mutation of
+    `nxraman`, since pydantic has no hook for "a nested model's field
+    changed."
+    """
+
+    nxraman: NXRaman = PydanticField(default_factory=NXRaman)
+
+    def sync_parameters(self) -> None:
+        """Flatten `self.nxraman` into `self.parameters`, preserving any
+        existing non-NXraman parameter entries (e.g. the generic
+        `/parameters/{key}` fallback bucket) already present.
+
+        Uses plain attribute assignment, not the constructor, so
+        ProtocolApplication's `clean_parameters` validator (which flattens
+        "/"-containing keys to "_", see datamodel.py) never runs on these
+        path-shaped keys.
+        """
+        flattened, _ = flatten_nx_model(self.nxraman)
+        merged = dict(self.parameters or {})
+        merged.update(flattened)
+        self.parameters = merged
 
 
 def spe2effect(
@@ -37,6 +77,48 @@ def spe2effect(
     )
 
 
+# Backward-compat input-key -> NXRaman-field routing, replacing the original
+# if/elif chain. Preserves every meta key string spectrastream (and any other
+# existing caller) is documented to send verbatim, case-insensitively
+# matched - including "pin hole size" (a legal spectrastream key that has no
+# home in the generated NXRaman model today, since NXraman's own appdef XML
+# never references NXoptical_lens/numerical_aperture; it falls through to the
+# generic "/parameters/{key}" bucket like any other unrecognized key, exactly
+# as it did before this key existed in any lookup table at all).
+#
+# Each entry is (lowercased key, setter) where setter(nxraman, value) mutates
+# the NXRaman instance in place. Numeric-looking string values are coerced to
+# float since spectrastream/meta dicts may pass either type (e.g. wavelength
+# arrives as `str(laser_wl)`).
+def _coerce_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _set_grating_period(nxraman: NXRaman, value) -> None:
+    instrument = nxraman.instrument.setdefault("instrument", NXInstrument())
+    monochromator = instrument.monochromator.setdefault("monochromator", NXMonochromator())
+    grating = monochromator.grating.setdefault("grating", NXGrating())
+    grating.period = _coerce_float(value)
+
+
+def _set_count_time(nxraman: NXRaman, value) -> None:
+    instrument = nxraman.instrument.setdefault("instrument", NXInstrument())
+    detector = instrument.detector_type.setdefault("detector", NXDetector())
+    detector.count_time = _coerce_float(value)
+
+
+_BACKWARD_COMPAT_KEYS = {
+    "grating": _set_grating_period,
+    "acquisition_time": _set_count_time,
+    "integration times(ms)": _set_count_time,
+    "integration time": _set_count_time,
+    "integ_time": _set_count_time,
+}
+
+
 def configure_papp(
     papp: mx.ProtocolApplication = None,
     instrument=("vendor", "model"),
@@ -50,7 +132,7 @@ def configure_papp(
     meta: Dict = None,
 ):
     if papp is None:
-        papp = mx.ProtocolApplication(
+        papp = NXRamanProtocolApplication(
             protocol=mx.Protocol(
                 topcategory="P-CHEM",
                 category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),
@@ -67,36 +149,52 @@ def configure_papp(
     papp.assay_uuid = str(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
     )
-    papp.parameters = {
+
+    nxraman = getattr(papp, "nxraman", None)
+    if nxraman is None:
+        nxraman = NXRaman()
+    nxraman.definition = "NXraman"
+    nxraman.experiment_type = "Raman spectroscopy"
+    nxraman_instrument = nxraman.instrument.setdefault("instrument", NXInstrument())
+    # NXraman's own NXDL doesn't declare a unit category on NXbeam.wavelength
+    # (unlike e.g. count_time), so flatten_nx_model can't infer "nm" on its
+    # own without inventing unit logic pyambit is meant to stay out of. The
+    # caller (spe2ambit/configure_papp) knows this is a laser wavelength in
+    # nanometers, so it's supplied explicitly as a Value here - flatten_nx_model
+    # passes an already-constructed Value straight through.
+    wavelength_float = _coerce_float(wavelength)
+    nxraman_instrument.beam_incident = NXBeam(
+        wavelength=mx.Value(loValue=wavelength_float, unit="nm")
+        if wavelength_float is not None
+        else None
+    )
+    nxraman_instrument.device_information = NXFabrication(
+        vendor=instrument[0], model=instrument[1]
+    )
+
+    extra_parameters: Dict[str, object] = {
         "/experiment_documentation/E.method": "Raman spectroscopy",
-        "/experiment_type": "Raman spectroscopy",
-        "instrument/beam_incident/wavelength": mx.Value(loValue=wavelength, unit="nm"),
-        "instrument/device_information/vendor": instrument[0],
-        "instrument/device_information/model": instrument[1],
-        "/definition": "NXraman",
     }
     for key in list(meta.keys()):
         key_l = key.lower()
-        if key_l == "grating":
-            papp.parameters["instrument/monochromator/grating/period"] = meta[key]
-        elif key_l in ["pin_hole_size", "pin hole size"]:
-            papp.parameters["instrument/objective_lens/numerical_aperture/size"] = meta[
-                key
-            ]
-        elif key_l in [
-            "acquisition_time",
-            "intigration times(ms)",
-            "integration times(ms)",
-            "integration time",
-            "integ_time",
-        ]:
-            papp.parameters["instrument/detector/count_time"] = meta[key]
-        elif key_l in ["accumulation"]:
-            papp.parameters["instrument/detector/exposure_time"] = meta[key]
-        elif key_l in ["delay (s)"]:
-            papp.parameters["instrument/detector/delay_time"] = meta[key]
+        setter = _BACKWARD_COMPAT_KEYS.get(key_l)
+        if setter is not None:
+            setter(nxraman, meta[key])
         elif not key.startswith("@"):
-            papp.parameters["/parameters/{}".format(key)] = meta[key]
+            extra_parameters["/parameters/{}".format(key)] = meta[key]
+
+    if hasattr(papp, "nxraman"):
+        papp.nxraman = nxraman
+        papp.parameters = extra_parameters
+        papp.sync_parameters()
+    else:
+        # Caller passed a plain (non-NXRaman) ProtocolApplication - fall back
+        # to writing the flattened parameters directly, matching this
+        # function's pre-existing contract for non-NXRaman callers.
+        flattened, _ = flatten_nx_model(nxraman)
+        merged = dict(extra_parameters)
+        merged.update(flattened)
+        papp.parameters = merged
 
     papp.uuid = "{}-{}".format(
         prefix,
@@ -136,7 +234,7 @@ def spe2ambit(
 ):
 
     if papp is None:
-        papp = mx.ProtocolApplication(
+        papp = NXRamanProtocolApplication(
             protocol=mx.Protocol(
                 topcategory="P-CHEM",
                 category=mx.EndpointCategory(code="ANALYTICAL_METHODS_SECTION"),

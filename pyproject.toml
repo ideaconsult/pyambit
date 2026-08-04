@@ -52,6 +52,16 @@ pytest = ">8.3.2"
 pytest-cov = ">5.0.0"
 pre-commit = ">3.8.0"
 
+# Dev/test-only tooling for regenerating pyambit/nexus_models/ from NeXus
+# application-definition (.nxdl.xml) files. Never a runtime dependency of pyambit
+# itself - see dev-tools/gen_nexus_models.py.
+#
+# NOTE: the NXDL application-definition tree parser this codegen relies on moved
+# from pynxtools.dataconverter.nexus_tree to pynxtools.nexus.nexus_tree in 0.15.0.
+[tool.poetry.group.nexus-codegen.dependencies]
+pynxtools = ">=0.11.0"
+lxml = ">=5.0.0"
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"

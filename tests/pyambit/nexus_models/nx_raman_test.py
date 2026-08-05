@@ -166,6 +166,39 @@ class TestBackwardCompatKeys:
         )
         assert expected_path in papp.parameters
 
+    def test_grating_value_with_unit_preserved_as_value(self):
+        """Regression: spectrastream sends grating as e.g. "600 g/mm" (a
+        number-with-unit string, from OpticalPath.grating), not a bare
+        number. NXGrating.period is Optional[Union[float, Value]] precisely
+        so this can be preserved as Value(loValue=600.0, unit="g/mm")
+        instead of silently dropped by a naive float(value) coercion."""
+        papp = _blank_nxraman_papp()
+        configure_papp(
+            papp,
+            instrument=("VendorX", "ModelY"),
+            wavelength=532,
+            meta={"grating": "600 g/mm"},
+        )
+        value = papp.parameters["instrument/monochromator/grating/period"]
+        assert isinstance(value, Value)
+        assert value.loValue == 600.0
+        assert value.unit == "g/mm"
+
+    def test_non_numeric_grating_value_falls_back_to_generic_bucket(self):
+        """A grating value with no leading number at all (e.g. free-text
+        "fibre") can't be routed to NXGrating.period without widening that
+        field beyond NXDL's own NX_NUMBER declaration - must fall back to
+        the generic bucket instead of being silently dropped."""
+        papp = _blank_nxraman_papp()
+        configure_papp(
+            papp,
+            instrument=("VendorX", "ModelY"),
+            wavelength=532,
+            meta={"grating": "fibre"},
+        )
+        assert "instrument/monochromator/grating/period" not in papp.parameters
+        assert papp.parameters["/parameters/grating"] == "fibre"
+
     def test_unrecognized_key_falls_back_to_generic_bucket(self):
         """'pin hole size' is a real spectrastream meta key with no home in
         the generated NXRaman model (NXraman's own appdef XML never

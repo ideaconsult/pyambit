@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Dict
@@ -87,9 +88,14 @@ def spe2effect(
 # as it did before this key existed in any lookup table at all).
 #
 # Each entry is (lowercased key, setter) where setter(nxraman, value) mutates
-# the NXRaman instance in place. Numeric-looking string values are coerced to
-# float since spectrastream/meta dicts may pass either type (e.g. wavelength
-# arrives as `str(laser_wl)`).
+# the NXRaman instance in place and returns True if it did, False if the
+# value couldn't be routed to its typed field (e.g. a free-text value with no
+# leading number, like "fibre", can't become NXGrating.period) - the caller
+# treats False the same as an unrecognized key, falling back to the generic
+# "/parameters/{key}" bucket so no caller-supplied value is ever silently
+# dropped. Numeric-looking string values are coerced to float/Value since
+# spectrastream/meta dicts may pass either type (e.g. wavelength arrives as
+# `str(laser_wl)`, grating arrives as "600 g/mm").
 def _coerce_float(value):
     try:
         return float(value)
@@ -97,17 +103,51 @@ def _coerce_float(value):
         return None
 
 
-def _set_grating_period(nxraman: NXRaman, value) -> None:
+_NUMBER_WITH_UNIT_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)\s*(\S.*)?$")
+
+
+def _coerce_value(value) -> "mx.Value | float | None":
+    """Parse a bare number ("600", 532) or a "number unit" string
+    ("600 g/mm", "100 um") into a float or a Value carrying the trailing text
+    as its unit. Returns None for anything with no leading number at all
+    (e.g. "fibre") - the field this feeds (NXGrating.period, NXDetector.
+    count_time) is typed Optional[Union[float, Value]], matching NXDL's own
+    NX_NUMBER declaration for these fields exactly; it is not widened to
+    accept arbitrary strings, so a caller must treat None here as "couldn't
+    route to the typed field" and fall back to the generic parameters bucket
+    (see _BACKWARD_COMPAT_KEYS's callers) rather than silently dropping data.
+    """
+    as_float = _coerce_float(value)
+    if as_float is not None:
+        return as_float
+    if not isinstance(value, str):
+        return None
+    match = _NUMBER_WITH_UNIT_RE.match(value)
+    if not match:
+        return None
+    number_text, unit_text = match.groups()
+    return mx.Value(loValue=float(number_text), unit=(unit_text or None))
+
+
+def _set_grating_period(nxraman: NXRaman, value) -> bool:
+    coerced = _coerce_value(value)
+    if coerced is None:
+        return False
     instrument = nxraman.instrument.setdefault("instrument", NXInstrument())
     monochromator = instrument.monochromator.setdefault("monochromator", NXMonochromator())
     grating = monochromator.grating.setdefault("grating", NXGrating())
-    grating.period = _coerce_float(value)
+    grating.period = coerced
+    return True
 
 
-def _set_count_time(nxraman: NXRaman, value) -> None:
+def _set_count_time(nxraman: NXRaman, value) -> bool:
+    coerced = _coerce_value(value)
+    if coerced is None:
+        return False
     instrument = nxraman.instrument.setdefault("instrument", NXInstrument())
     detector = instrument.detector_type.setdefault("detector", NXDetector())
-    detector.count_time = _coerce_float(value)
+    detector.count_time = coerced
+    return True
 
 
 _BACKWARD_COMPAT_KEYS = {
@@ -178,9 +218,14 @@ def configure_papp(
     for key in list(meta.keys()):
         key_l = key.lower()
         setter = _BACKWARD_COMPAT_KEYS.get(key_l)
-        if setter is not None:
-            setter(nxraman, meta[key])
-        elif not key.startswith("@"):
+        # A setter returning False means the value couldn't be routed to its
+        # typed NXDL field (e.g. "fibre" has no leading number, so it can't
+        # become NXGrating.period without widening that field beyond NXDL's
+        # own NX_NUMBER declaration) - fall back to the generic bucket rather
+        # than silently dropping data a real caller supplied.
+        if setter is not None and setter(nxraman, meta[key]):
+            continue
+        if not key.startswith("@"):
             extra_parameters["/parameters/{}".format(key)] = meta[key]
 
     if hasattr(papp, "nxraman"):

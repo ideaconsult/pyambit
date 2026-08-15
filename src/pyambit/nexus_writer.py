@@ -534,7 +534,14 @@ def effectarray2data(effect: EffectArray):
     if effect.signal.auxiliary:
         for a in effect.signal.auxiliary:
             item = effect.signal.auxiliary[a]
-            if isinstance(item, MetaValueArray or isinstance(item, ValueArray)):
+            # NB the operator precedence bug this replaces:
+            # `isinstance(item, MetaValueArray or isinstance(item, ValueArray))`
+            # collapses to `isinstance(item, MetaValueArray)`, because
+            # `MetaValueArray or ...` short-circuits on the truthy class. A plain
+            # ValueArray therefore fell through to the ndarray branch and
+            # silently borrowed the SIGNAL's unit -- labelling a dimensionless
+            # replicate count "g".
+            if isinstance(item, (MetaValueArray, ValueArray)):
                 _tmp = item.values
                 _tmp_unit = item.unit
                 _tmp_meta = item.conditions
@@ -548,11 +555,19 @@ def effectarray2data(effect: EffectArray):
 
             if _tmp.size > 0:
                 _auxname = a.replace("/", "_")
-                long_name = "{} ({}){}{}".format(
-                    effect.endpoint,
+                # An auxiliary is named for ITSELF, with ITS OWN unit. Naming it
+                # after the primary signal produced labels like
+                # "Tm1 (1st heating) (Tc (cooling))/degC" -- which is what a
+                # viewer displays, since it shows long_name -- and borrowed the
+                # primary's unit even where the auxiliary had its own.
+                # The auxiliary's OWN unit, with no fallback to the signal's: a
+                # ValueArray carrying unit=None is deliberately dimensionless
+                # (a replicate count, a normalised ratio), and borrowing the
+                # signal's unit would label it "g" or "counts".
+                long_name = "{}{}{}".format(
                     a,
-                    "" if effect.signal.unit is None else "/",
-                    "" if effect.signal.unit is None else effect.signal.unit,
+                    "" if _tmp_unit is None else "/",
+                    "" if _tmp_unit is None else _tmp_unit,
                 ).strip()
                 if _auxname == "textValue":
                     nxdata[_auxname] = nx.tree.NXfield(

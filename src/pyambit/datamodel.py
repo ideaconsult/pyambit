@@ -699,6 +699,9 @@ class Investigation(AmbitModel):
     title: Optional[str] = None
     description: Optional[str] = None
     image: Optional[str] = None
+    # NXnote's own "file_name" field ("Name of original file name if note
+    # was read from an external source"); optional, cosmetic only.
+    image_filename: Optional[str] = None
 
     def __eq__(self, other):
         if not isinstance(other, Investigation):

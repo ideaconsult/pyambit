@@ -107,6 +107,7 @@ def test_investigation_image_written_as_nxnote_not_base64_string():
         uuid="study-1",
         title="With a picture",
         image=base64.b64encode(_TINY_PNG).decode("ascii"),
+        image_filename="summary.png",
     )
     pa = _protocol_application("pa1", investigation_uuid=investigation, owner_uuid="s1")
     substances = mx.Substances(substance=[_substance("Sample 1", "s1", pa)])
@@ -117,6 +118,7 @@ def test_investigation_image_written_as_nxnote_not_base64_string():
     image_note = root["investigation/study-1/image"]
     assert isinstance(image_note, nx.NXnote)
     assert str(image_note.type) == "image/png"
+    assert str(image_note.file_name) == "summary.png"
     recovered = np.asarray(image_note.data.nxdata, dtype=np.uint8).tobytes()
     assert recovered == _TINY_PNG
 

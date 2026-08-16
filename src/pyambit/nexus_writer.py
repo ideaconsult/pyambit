@@ -228,6 +228,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                 note = nx.NXnote()
                 note.type = "image/png"
                 note.data = np.frombuffer(image_bytes, dtype=np.uint8)
+                if investigation.image_filename is not None:
+                    note.file_name = investigation.image_filename
                 group["image"] = note
         nx_root["{}/investigation".format(entry_id)] = nx.NXlink(investigation_id)
 

@@ -566,9 +566,17 @@ def effectarray2data(effect: EffectArray):
     # uncertanties can be specified for both signal and axes through FIELDNAME_errors
     axes = []
     for key in effect.axes:
+        axis_values = effect.axes[key].values
+        # A categorical axis (Location: "Norway"/"Utrecht") arrives as an
+        # object-dtype numpy array of Python strings, which h5py cannot write
+        # (h5t.py_create has no native equivalent for dtype('O')) -- the same
+        # problem the textValue auxiliary already works around below.
+        axis_dtype = None
+        if isinstance(axis_values, np.ndarray) and axis_values.dtype.kind == "O":
+            axis_dtype = string_dtype(encoding="utf-8")
         axes.append(
             nx.tree.NXfield(
-                effect.axes[key].values,
+                axis_values,
                 name=key.replace("/", "_"),
                 long_name="{}{}{}".format(
                     key,
@@ -577,11 +585,19 @@ def effectarray2data(effect: EffectArray):
                 ).strip(),
                 errors=effect.axes[key].errorValue,
                 units=effect.axes[key].unit,
+                dtype=axis_dtype,
             )
         )
 
+    signal_values = effect.signal.values
+    # Same object-dtype problem as the axes above, for a text-valued signal
+    # (e.g. a "Marker" EffectArray whose values are compound names, not
+    # numbers -- one legitimate array-shaped result, just not numeric).
+    signal_dtype = None
+    if isinstance(signal_values, np.ndarray) and signal_values.dtype.kind == "O":
+        signal_dtype = string_dtype(encoding="utf-8")
     signal = nx.tree.NXfield(
-        effect.signal.values,
+        signal_values,
         name=effect.endpoint,
         units=effect.signal.unit,
         long_name="{}{}{}".format(
@@ -589,6 +605,7 @@ def effectarray2data(effect: EffectArray):
             "" if effect.signal.unit is None else "/",
             "" if effect.signal.unit is None else effect.signal.unit,
         ).strip(),
+        dtype=signal_dtype,
     )
     if effect.signal.conditions is not None:
         for key in effect.signal.conditions:

@@ -106,8 +106,12 @@ class Nexus2Ambit:
                     self.substances[record.i5uuid] = record
 
     def parse_studies(self, nxroot: nx.NXroot, relative_path: str):
+        # "substance" and "investigation" are shared top-level groups
+        # written once and linked from real study entries (see
+        # nexus_writer.to_nexus), not study entries themselves -- neither
+        # has a "definition" field, so parse_entry would fail on them.
         for entry_name, entry in nxroot.items():
-            if entry_name != "substance":
+            if entry_name not in ("substance", "investigation"):
                 papp: ProtocolApplication = self.parse_entry(entry, relative_path)
                 if papp.owner.substance.uuid in self.substances:
                     self.substances[papp.owner.substance.uuid].study.append(papp)

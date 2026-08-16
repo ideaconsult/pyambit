@@ -1,3 +1,4 @@
+import base64
 import math
 import re
 import traceback
@@ -217,7 +218,17 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             ):
                 group.attrs["description"] = investigation.description
             if investigation.image is not None and "image" not in group:
-                group["image"] = investigation.image
+                # NXnote with type="image/png" and data as a uint8 byte
+                # array is the NeXus-native way to embed a picture -- an
+                # HDF5/NeXus-aware viewer (H5Web, HDFView) can render it
+                # directly. A base64 STRING field would just show as text
+                # ("iVBORw0KG...") to any such viewer; only code that knows
+                # to decode it first would ever see a picture.
+                image_bytes = base64.b64decode(investigation.image)
+                note = nx.NXnote()
+                note.type = "image/png"
+                note.data = np.frombuffer(image_bytes, dtype=np.uint8)
+                group["image"] = note
         nx_root["{}/investigation".format(entry_id)] = nx.NXlink(investigation_id)
 
     # duration

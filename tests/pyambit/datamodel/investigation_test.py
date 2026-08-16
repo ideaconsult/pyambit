@@ -1,8 +1,19 @@
+import base64
+
+import numpy as np
 import nexusformat.nexus.tree as nx
 import pyambit.datamodel as mx
 
 # to_nexus is not added without this import
 from pyambit import nexus_writer  # noqa: F401
+
+# Smallest valid PNG (a 1x1 transparent pixel), just enough bytes to prove
+# the round-trip through base64 -> NXnote uint8 data -> back is exact.
+_TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108"
+    "0600000031b2680a0000000a4944415478da6360000002000155"
+    "0d2b71000000004945454e44ae426082"
+)
 
 
 def _protocol_application(uuid, investigation_uuid, owner_uuid):
@@ -83,6 +94,31 @@ def test_investigation_object_supplies_title_and_description():
     assert group.attrs["uuid"] == "study-1"
     assert str(group.title) == "A study title"
     assert group.attrs["description"] == "A one-line summary of the study."
+
+
+def test_investigation_image_written_as_nxnote_not_base64_string():
+    """image is a base64 str on the Investigation model (JSON-portable),
+    but nexus_writer must decode it into a real NXnote(type="image/png",
+    data=<uint8 bytes>) -- the NeXus-native way to embed a picture, which
+    an HDF5/NeXus-aware viewer can render directly. A raw base64 string
+    field would just show as text to such a viewer.
+    """
+    investigation = mx.Investigation(
+        uuid="study-1",
+        title="With a picture",
+        image=base64.b64encode(_TINY_PNG).decode("ascii"),
+    )
+    pa = _protocol_application("pa1", investigation_uuid=investigation, owner_uuid="s1")
+    substances = mx.Substances(substance=[_substance("Sample 1", "s1", pa)])
+
+    root = nx.NXroot()
+    substances.to_nexus(root, hierarchy=True)
+
+    image_note = root["investigation/study-1/image"]
+    assert isinstance(image_note, nx.NXnote)
+    assert str(image_note.type) == "image/png"
+    recovered = np.asarray(image_note.data.nxdata, dtype=np.uint8).tobytes()
+    assert recovered == _TINY_PNG
 
 
 def test_investigation_written_once_shared_across_entries():

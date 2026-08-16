@@ -13,6 +13,7 @@ from pyambit.ambit_deco import add_ambitmodel_method
 from pyambit.datamodel import (
     Composition,
     EffectArray,
+    Investigation,
     MetaValueArray,
     ProtocolApplication,
     Study,
@@ -150,6 +151,20 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             "entry" if papp.nx_name is None else papp.nx_name, papp.uuid
         )
 
+    # entry_id can come out with a REDUNDANT leading "/" whenever there is
+    # no real hierarchy path in front of it -- either hierarchy=False (the
+    # common case; _categories_collection stayed "") or the except-branch
+    # fallback (which always starts a fresh "/..." regardless of
+    # _categories_collection). NXgroup's __setitem__ treats any "/" as a
+    # path separator, so nx_root[entry_id] then splits on an empty first
+    # segment and writes a mangled entry (observed: a literal "@_<name>"
+    # key) instead of a normal NXentry -- confirmed by inspection, not a
+    # guess. A genuine hierarchy path ("/CAT/CODE" + "/name_uuid") is a
+    # single leading slash too, so only strip a slash that isn't already
+    # accounted for by _categories_collection.
+    if entry_id.startswith("/") and not entry_id.startswith(_categories_collection + "/"):
+        entry_id = entry_id.lstrip("/")
+
     _categories_collection = "{}{}".format(_categories_collection, entry_id)
     if entry_id not in nx_root:
         nx_root[entry_id] = nx.tree.NXentry()
@@ -162,9 +177,48 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     # experiment_identifier
     # experiment_description
     # collection_identifier collection of related measurements or experiments.
-    nx_root["{}/collection_identifier".format(entry_id)] = papp.investigation_uuid
+    investigation = papp.investigation_uuid
+    investigation_uuid = (
+        investigation.uuid if isinstance(investigation, Investigation) else investigation
+    )
+    nx_root["{}/collection_identifier".format(entry_id)] = investigation_uuid
     nx_root["{}/experiment_identifier".format(entry_id)] = papp.assay_uuid
     # collection_description
+
+    # An investigation can span many ProtocolApplications, many substances,
+    # and many separate writes -- it belongs to none of them individually,
+    # so its label is written ONCE per uuid (mirroring substance/<uuid>
+    # below) and every entry that shares the uuid links to it, rather than
+    # repeating the title/description into each entry. Every entry with an
+    # investigation_uuid gets linked, whether or not the richer
+    # Investigation(title=..., description=...) form was used -- a bare
+    # uuid still groups its entries together, just without a label.
+    if investigation_uuid is not None:
+        investigation_id = "investigation/{}".format(investigation_uuid)
+        if "investigation" not in nx_root:
+            nx_root["investigation"] = nx.NXgroup()
+        if investigation_id not in nx_root:
+            nx_root[investigation_id] = nx.NXgroup()
+            nx_root[investigation_id].attrs["uuid"] = investigation_uuid
+        # Fill in the label whenever a richer Investigation object supplies
+        # one, regardless of write order: a bare-uuid ProtocolApplication
+        # may be processed before the one carrying the actual
+        # Investigation(title=..., ...), and the group must not be left
+        # permanently label-less just because it happened to be created
+        # first. Never overwrite an already-set title/description, so this
+        # stays idempotent no matter how many entries share the uuid.
+        group = nx_root[investigation_id]
+        if isinstance(investigation, Investigation):
+            if investigation.title is not None and "title" not in group:
+                group.title = investigation.title
+            if (
+                investigation.description is not None
+                and "description" not in group.attrs
+            ):
+                group.attrs["description"] = investigation.description
+            if investigation.image is not None and "image" not in group:
+                group["image"] = investigation.image
+        nx_root["{}/investigation".format(entry_id)] = nx.NXlink(investigation_id)
 
     # duration
     # program_name

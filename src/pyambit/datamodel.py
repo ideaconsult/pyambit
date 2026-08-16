@@ -683,6 +683,35 @@ class ReliabilityParams(AmbitModel):
         )
 
 
+class Investigation(AmbitModel):
+    """A human-readable label for what investigation_uuid identifies.
+
+    Deliberately separate from Citation: many ProtocolApplications across
+    many files can share one investigation_uuid (ISA-TAB's investigation is
+    not 1:1 with either a substance or a single write call), so the label
+    is written once, keyed by uuid, and entries link to it -- not
+    duplicated onto every ProtocolApplication the way Citation naturally
+    is. `image` is an optional embedded thumbnail/summary plot (e.g. a
+    small PNG as base64 or a URI), not the investigation's raw data.
+    """
+
+    uuid: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+
+    def __eq__(self, other):
+        if not isinstance(other, Investigation):
+            return False
+        return self.uuid == other.uuid
+
+    def __repr__(self):
+        return f"Investigation(uuid={self.uuid!r}, title={self.title!r})"
+
+
+Investigation = create_model("Investigation", __base__=Investigation)
+
+
 class Citation(AmbitModel):
     year: Optional[int] = None
     title: str
@@ -809,7 +838,12 @@ class ProtocolApplication(AmbitModel):
     effects: List[Union[EffectRecord, EffectArray]]
     owner: Optional[SampleLink] = None
     protocol: Optional[Protocol] = None
-    investigation_uuid: Optional[str] = None
+    # A bare uuid works exactly as before (backward compatible with every
+    # existing caller); passing a full Investigation instead adds a
+    # title/description/image, written once per uuid and linked from every
+    # entry that shares it (see nexus_writer.to_nexus) -- one field, so
+    # there is no separate flag to remember to also set.
+    investigation_uuid: Optional[Union[str, Investigation]] = None
     assay_uuid: Optional[str] = None
     updated: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)

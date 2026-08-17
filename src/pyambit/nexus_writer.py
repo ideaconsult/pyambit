@@ -771,6 +771,33 @@ def effectarray2data(effect: EffectArray):
     return nxdata
 
 
+def _has_numeric_axes(group) -> bool:
+    """True if `group` (an NXprocess/NXgroup holding NXdata children, as
+    written above) has at least one NXdata whose signal and every axis are
+    numeric -- i.e. something a generic NeXus viewer's default plot can
+    actually render, as opposed to a categorical axis (e.g. "standard":
+    ["VUA_PMMA_Co", ...]), which is exactly what triggers a viewer's
+    "Expected numeric type" error when picked as the entry's @default.
+    """
+    return any(
+        isinstance(child, nx.tree.NXdata) and _has_numeric_axes_data(child)
+        for child in group.values()
+    )
+
+
+def _has_numeric_axes_data(nxdata) -> bool:
+    """True if a single NXdata's signal and every axis are numeric."""
+    signal_name = nxdata.attrs.get("signal")
+    fields = [nxdata[signal_name]] if signal_name in nxdata else []
+    axes = nxdata.attrs.get("axes")
+    if axes:
+        axes = [axes] if isinstance(axes, str) else list(axes)
+        fields += [nxdata[a] for a in axes if a in nxdata]
+    return bool(fields) and all(
+        np.issubdtype(np.asarray(f.nxdata).dtype, np.number) for f in fields
+    )
+
+
 def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
 
     if entry is None:
@@ -820,8 +847,41 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
             nxdata = effectarray2data(effect)
 
             entry[_group_key][entryid] = nxdata
+            # `if _default is None` was true on EVERY iteration (_default is
+            # never reassigned), so entry.attrs["default"] silently ended up
+            # as whichever group was written LAST, not first -- and for a
+            # study whose last-written effects are categorical (e.g.
+            # CALIBRATION indexed by "standard", a string axis), a generic
+            # NeXus viewer's default plot then fails with something like
+            # "Expected numeric type". Fixed by tracking it properly AND
+            # completing the @default chain one level further: NeXus
+            # expects entry/@default to name a group whose OWN @default in
+            # turn names a plottable NXdata (root -> entry -> group ->
+            # NXdata) -- entry/@default alone is not enough, a viewer still
+            # has to pick a child within that group, and previously nothing
+            # told it which. Preferring a numeric NXdata here means the
+            # first numeric group/entry found wins and is never displaced
+            # by a later categorical one.
+            group = entry[_group_key]
+            is_numeric = _has_numeric_axes_data(nxdata)
+            # Group-level default: set on the first child written to this
+            # group (so the chain is always complete, even if nothing
+            # numeric ever turns up), then upgraded the first time a
+            # numeric child arrives.
+            if "default" not in group.attrs or (
+                is_numeric and not _has_numeric_axes_data(group[group.attrs["default"]])
+            ):
+                group.attrs["default"] = entryid
+
             if _default is None:
+                _default = _group_key
                 entry.attrs["default"] = _group_key
+            else:
+                current_default_numeric = _has_numeric_axes(
+                    entry[entry.attrs.get("default", _default)]
+                )
+                if is_numeric and not current_default_numeric:
+                    entry.attrs["default"] = _group_key
 
             if nxdata.title is None:
                 nxdata.title = (

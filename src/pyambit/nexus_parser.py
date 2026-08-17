@@ -88,7 +88,7 @@ class Nexus2Ambit:
                 name=nxentry["name"].nxdata,
                 publicname=nxentry.attrs["publicname"],
                 format="NeXus",
-                substanceType="CHEBI_59999",
+                substanceType=nxentry.attrs.get("substanceType", "CHEBI_59999"),
                 referenceSubstance=None,
                 study=[],
                 composition=self.composition_from_nexus(nxentry),

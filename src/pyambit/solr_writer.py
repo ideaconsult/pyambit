@@ -96,8 +96,8 @@ class Ambit2Solr:
             _solr["reference_year_s"] = papp.citation.year
             _solr["reference_s"] = papp.citation.title
             _solr["updated_s"] = papp.updated
-            if "E.method_s" in papp.parameters:
-                _solr["E.method_s"] = papp.parameters["E.method_s"]
+            if "E.method" in papp.parameters:
+                _solr["E.method_s"] = papp.parameters["E.method"]
             self.effectrecord2solr(effect, _solr)
 
             _conditions = {"type_s": "conditions"}
@@ -124,8 +124,8 @@ class Ambit2Solr:
                 if papp.protocol.category is None
                 else papp.protocol.category.code
             )
-            if "E.method_s" in papp.parameters:
-                _params["E.method_s"] = papp.parameters["E.method_s"]
+            if "E.method" in papp.parameters:
+                _params["E.method_s"] = papp.parameters["E.method"]
             _params["type_s"] = "params"
             _solr["_childDocuments_"] = [_params]
         papp_solr.append(_solr)

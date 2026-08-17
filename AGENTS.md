@@ -36,11 +36,12 @@ for downstream ploomber pipelines that convert lab/instrument data to NeXus.
   in this repo). Drives `convert_effectrecords2array`'s dose-axis selection instead of a hardcoded rule. Keep the
   JSON in sync with jtoxkit-react if that config changes; this repo cannot regenerate it standalone.
 - `src/pyambit/solr_writer.py`: `Ambit2Solr` — flattens `Substances`/`ProtocolApplication`/`EffectRecord` into Solr
-  documents. Reads specific parameter keys literally, not via a naming convention: `"E.method_s"` (already Solr's
-  `_s` string-suffix convention, appended by the CALLER, not by `prm2solr`) is checked directly on
-  `papp.parameters`. `nexus_writer.to_nexus` separately checks the bare `"E.method"` key for
-  `experiment_documentation.attrs["method"]`. A caller that wants both NeXus and Solr to pick up the method name
-  needs to set BOTH keys — there is no single canonical key today.
+  documents. Reads the bare `"E.method"` parameter key (same key `nexus_writer.to_nexus` reads for
+  `experiment_documentation.attrs["method"]`) and appends the `_s` suffix itself when writing `E.method_s` into the
+  Solr document — a caller sets `papp.parameters["E.method"]` once and both NeXus and Solr pick it up. (Previously
+  `solr_writer.py` checked the literal `"E.method_s"` key instead, which no caller in this codebase's test fixtures
+  ever set — fixed to read the bare key, consistent with the general rule that `_s`/`_d` suffixes are appended by
+  the Solr indexer, not carried by source parameters.)
 - `tests/pyambit/datamodel/`: pytest tests, one file per concern (`datamodel_test.py`, `nexus_writer_test.py`,
   `investigation_test.py`, `default_plot_test.py`, `solr_writer_test.py`, `spectra_writer_test.py`).
 - `tests/pyambit/resources/`: JSON fixtures (`study.json`, `substance.json`, `composition.json`, `buggy.json`) used
@@ -101,6 +102,17 @@ poetry run pytest tests/pyambit/datamodel/nexus_writer_test.py -v
   into a real `NXnote(type="image/png", data=<uint8 bytes>)` — the NeXus-native way to embed a picture (`NXnote`
   base class, `data` field is `NX_BINARY`, doc says explicitly "e.g. pictures, movies, audio"). A raw base64
   string field would just display as text (`iVBORw0KG...`) to any NeXus/HDF5-aware viewer.
+- **`None`-valued attrs silently vanish on write, then crash on read**: `nexus_writer.to_nexus` writes several
+  fields unconditionally as NXentry/NXsample attrs (`SubstanceRecord.ownerUUID` → `attrs["ownerUUID"]`,
+  `Protocol.guideline` → `experiment_documentation/protocol.attrs["guideline"]`) without checking for `None` first.
+  Both fields default to `None` on their models (`ownerUUID: Optional[str] = None`,
+  `guideline: List[str] = None` — the latter a separate pre-existing type-hint-violating default). h5py/nexusformat
+  silently drops an attribute assigned `None` rather than writing a null value, so the key is simply absent —
+  `Nexus2Ambit.parse` then crashes with `KeyError('ownerUUID')` or `KeyError('guideline')` on read, not a clean
+  validation error at write time. Any writer helper that builds a `SubstanceRecord`/`Protocol` (including
+  `spe2ambit`/`configure_papp` in `nexus_spectra.py`, which never sets `guideline`) must set both fields
+  explicitly — confirmed via real readers (`nanodata/pipeline_nexus/tasks/read_blop.py`) hitting both `KeyError`s
+  in production use before setting them by hand.
 
 ## Development Guidance
 

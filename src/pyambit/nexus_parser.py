@@ -5,6 +5,9 @@ import nexusformat.nexus as nx
 
 from pyambit.datamodel import (
     Citation,
+    Component,
+    CompositionEntry,
+    Compound,
     EffectRecord,
     EffectResult,
     EndpointCategory,
@@ -35,6 +38,46 @@ class Nexus2Ambit:
     def clear(self):
         self.substances = {}
 
+    def composition_from_nexus(self, nxentry: nx.NXentry) -> list:
+        """Read back the NXsample_component children SubstanceRecord.to_nexus
+        writes under a substance's NXsample entry (one child per
+        CompositionEntry, named "{relation minus 'HAS_'}_{index}"). Returns
+        None if the entry has none, matching CompositionEntry's own
+        Optional[List[...]] contract rather than an empty list.
+        """
+        entries = []
+        for _name, child in nxentry.items():
+            if not isinstance(child, nx.NXsample_component):
+                continue
+            compound = Compound(
+                name=child.get("name").nxvalue if "name" in child else None,
+                # "chemical_formula" is the real NXDL field name (see
+                # nexus_writer.py's matching fix); "formula" was the old,
+                # schema-mismatched field this never round-tripped through.
+                formula=(
+                    child.get("chemical_formula").nxvalue
+                    if "chemical_formula" in child
+                    else None
+                ),
+                cas=child.attrs.get("cas"),
+                einecs=child.attrs.get("einecs"),
+                inchi=child.attrs.get("inchi"),
+                inchikey=child.attrs.get("inchikey"),
+            )
+            description = child.get("description")
+            entries.append(
+                CompositionEntry(
+                    component=Component(compound=compound),
+                    # to_nexus writes the FULL relation string here (e.g.
+                    # "HAS_COMPONENT"), not the "HAS_"-stripped form used
+                    # only for the node's own name -- read it back verbatim.
+                    relation=(
+                        description.nxvalue if description is not None else "HAS_COMPONENT"
+                    ),
+                )
+            )
+        return entries or None
+
     def substance_from_nexus(self, nxentry: nx.NXentry) -> SubstanceRecord:
         try:
             record = SubstanceRecord(
@@ -48,7 +91,7 @@ class Nexus2Ambit:
                 substanceType="CHEBI_59999",
                 referenceSubstance=None,
                 study=[],
-                composition=None,
+                composition=self.composition_from_nexus(nxentry),
             )
             return record
         except Exception as err:

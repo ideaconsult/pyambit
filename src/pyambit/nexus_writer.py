@@ -487,11 +487,18 @@ def to_nexus(  # noqa: F811
             # name='' cas='' einecs='' inchikey='YVZATJAPAZIWIL-UHFFFAOYSA-M'
             # inchi='InChI=1S/H2O.Zn/h1H2;/q;+1/p-1' formula='HOZn'
             component.name = ce.component.compound.name
-            component.einecs = ce.component.compound.einecs
-            component.cas = ce.component.compound.cas
-            component.formula = ce.component.compound.formula
-            component.inchi = ce.component.compound.inchi
-            component.inchikey = ce.component.compound.inchikey
+            # NXsample_component's real NXDL declares "chemical_formula",
+            # not "formula" -- writing "formula" here silently created a
+            # field the schema doesn't recognize while never populating the
+            # one it does. cas/einecs/inchi/inchikey have no NXDL field at
+            # all on NXsample_component (nexusformat still lets you set
+            # arbitrary attrs on the object), kept as attrs rather than
+            # dropped since Compound carries real, useful identifiers.
+            component.chemical_formula = ce.component.compound.formula
+            component.attrs["einecs"] = ce.component.compound.einecs
+            component.attrs["cas"] = ce.component.compound.cas
+            component.attrs["inchi"] = ce.component.compound.inchi
+            component.attrs["inchikey"] = ce.component.compound.inchikey
             component.description = ce.relation
             # print(ce.component.values)
             # print(ce.proportion)

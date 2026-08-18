@@ -286,7 +286,15 @@ def spe2ambit(
             ),
             effects=[],
         )
-        papp.nx_name = provider
+        # nx_name feeds nexus_writer.to_nexus's entry_id verbatim (unlike
+        # citation.owner, which that same function sanitizes with
+        # .replace("/", "_") before using it in a path). A provider that is
+        # a DOI (e.g. "10.17605/OSF.IO/7CQV4") would otherwise make
+        # NXgroup.__setitem__ treat the embedded "/" as a path separator and
+        # raise NeXusError("Invalid path") when no such intermediate group
+        # exists. Sanitize only the NeXus-facing name; provider itself
+        # (citation, parameters, sample_provider linkage) stays untouched.
+        papp.nx_name = provider.replace("/", "_") if provider else provider
         configure_papp(
             papp,
             instrument=instrument,

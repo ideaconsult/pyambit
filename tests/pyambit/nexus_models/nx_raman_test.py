@@ -286,6 +286,48 @@ class TestToNexusRealClasses:
         entry = next(iter(nx_root.entries.values()))
         assert entry["experiment_type"].nxvalue == "Raman spectroscopy"
 
+    def test_group_investigation_default_creates_shared_group(self):
+        """group_investigation defaults to True -- unchanged pre-existing
+        behavior: every call groups its entry under a shared
+        investigation/<uuid> NeXus node."""
+        papp = spe2ambit(
+            x=np.linspace(100, 3000, 10),
+            y=np.random.rand(10),
+            meta={"@signal": "y", "@axes": ["x"]},
+            instrument=("VendorX", "ModelY"),
+            wavelength=532,
+            investigation="Shared Study",
+        )
+        assert papp.investigation_uuid is not None
+
+        nx_root = nx.NXroot()
+        papp.to_nexus(nx_root)
+        assert "investigation" in nx_root
+
+    def test_group_investigation_false_skips_shared_group(self):
+        """group_investigation=False is the RRUFF case: one .nxs file per
+        sample, with no reason to link unrelated samples into a shared
+        investigation node just because they share an investigation label.
+        Citation and assay_uuid must still be populated from investigation=
+        -- only the shared grouping is skipped."""
+        papp = spe2ambit(
+            x=np.linspace(100, 3000, 10),
+            y=np.random.rand(10),
+            meta={"@signal": "y", "@axes": ["x"]},
+            instrument=("VendorX", "ModelY"),
+            wavelength=532,
+            investigation="RRUFF_RAMAN_532nm",
+            provider="RRUFF",
+            group_investigation=False,
+        )
+        assert papp.investigation_uuid is None
+        assert papp.assay_uuid is not None
+        assert papp.citation.title == "RRUFF_RAMAN_532nm"
+
+        nx_root = nx.NXroot()
+        papp.to_nexus(nx_root)
+        assert "investigation" not in nx_root
+
 
 class TestEndToEndRichWrite:
     """Fill an NXRaman instance with representative metadata, produce a real

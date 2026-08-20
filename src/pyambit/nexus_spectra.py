@@ -170,6 +170,7 @@ def configure_papp(
     citation: mx.Citation = None,
     prefix="TEST",
     meta: Dict = None,
+    group_investigation: bool = True,
 ):
     if papp is None:
         papp = NXRamanProtocolApplication(
@@ -185,7 +186,15 @@ def configure_papp(
         )
     else:
         papp.citation = citation
-    papp.investigation_uuid = str(uuid.uuid5(uuid.NAMESPACE_OID, investigation))
+    # group_investigation=False leaves papp.investigation_uuid unset (None)
+    # -- nexus_writer.to_nexus only creates the shared investigation/<uuid>
+    # NeXus group when investigation_uuid is not None, so this is how a
+    # caller opts out of that grouping entirely (e.g. RRUFF: one .nxs file
+    # per sample, with no reason to link samples into a shared
+    # investigation node). investigation= keeps feeding Citation.title and
+    # assay_uuid regardless -- those are independent of the shared group.
+    if group_investigation:
+        papp.investigation_uuid = str(uuid.uuid5(uuid.NAMESPACE_OID, investigation))
     papp.assay_uuid = str(
         uuid.uuid5(uuid.NAMESPACE_OID, "{} {}".format(investigation, provider))
     )
@@ -276,6 +285,7 @@ def spe2ambit(
     endpointtype="RAW_DATA",
     unit="cm¯¹",
     papp=None,
+    group_investigation: bool = True,
 ):
 
     if papp is None:
@@ -304,6 +314,7 @@ def spe2ambit(
             sample_provider=sample_provider,
             investigation=investigation,
             citation=None,
+            group_investigation=group_investigation,
             prefix=prefix,
             meta=meta,
         )

@@ -113,6 +113,26 @@ poetry run pytest tests/pyambit/datamodel/nexus_writer_test.py -v
   `spe2ambit`/`configure_papp` in `nexus_spectra.py`, which never sets `guideline`) must set both fields
   explicitly — confirmed via real readers (`nanodata/pipeline_nexus/tasks/read_blop.py`) hitting both `KeyError`s
   in production use before setting them by hand.
+- **The same `None` problem applies to NXfields, not just attrs — and there the fix belongs on the READ side.**
+  `to_nexus` writes `nx_root["{entry_id}/collection_identifier"] = investigation_uuid` and
+  `.../experiment_identifier` = `assay_uuid` unconditionally (`nexus_writer.py:181-186`); assigning `None` drops
+  the field entirely, exactly as with attrs. But unlike `ownerUUID`/`guideline`, an absent
+  `collection_identifier` is **legitimate**: `configure_papp(group_investigation=False)` deliberately leaves
+  `investigation_uuid` unset for corpora that shouldn't be linked into a shared `investigation/<uuid>` group
+  (RRUFF: one `.nxs` per sample, no reason to link thousands of unrelated minerals). `parse_entry` therefore must
+  not call `.nxvalue` on the result of `nxentry.get(...)` unconditionally — it now null-checks both fields.
+  Confirmed the hard way: before that fix, indexing the RRUFF corpus failed **every single entry** with
+  `AttributeError: 'NoneType' object has no attribute 'nxvalue'`, producing a silently empty Solr index (the
+  per-file `try/except` in the caller swallowed each one as a logged error). When adding a new field to
+  `parse_entry`, null-check it unless a writer genuinely guarantees it is always set.
+- **`ProtocolApplication.uuid` is a plain `Optional[str]`, with no UUID-format validation anywhere** — not in the
+  pydantic model, not in `nexus_writer` (`entry_id` is built from `papp.nx_name`, and `entry_identifier_uuid` is
+  written verbatim), not in `nexus_parser` (read back as an opaque string). A comment in an early version of
+  `pipeline_nexus/tasks/read_rruff.py` claimed "the AMBIT parser expects [papp.uuid] to actually be a UUID" and
+  hashed a readable identifier because of it; that claim does not hold against this code. The *real* constraint on
+  `papp.uuid` is external — Java-side AMBIT code and the database schema — so it should still stay a uuid, but do
+  not attribute that requirement to pyambit or go looking for the validation here. A consumer that needs a
+  readable identifier should derive it from `nx_name` instead (see `import_pipeline`'s `NxNameDocumentIdMixin`).
 
 ## Development Guidance
 

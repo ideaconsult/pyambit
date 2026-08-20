@@ -199,7 +199,16 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         if "investigation" not in nx_root:
             nx_root["investigation"] = nx.NXgroup()
         if investigation_id not in nx_root:
-            nx_root[investigation_id] = nx.NXgroup()
+            # NXcite is the real NeXus base class for title/description-
+            # shaped bibliographic-style text -- already used below for
+            # papp.citation (the source paper) via the same title/
+            # description/year fields. Investigation.title/.description are
+            # the same shape (a label + freeform text for a shared
+            # collection), so reuse NXcite here too rather than a bare
+            # NXgroup; NXnote (file_name/type/data) stays reserved for the
+            # embedded image sub-node below, which is a real attachment,
+            # not label text.
+            nx_root[investigation_id] = nx.NXcite()
             nx_root[investigation_id].attrs["uuid"] = investigation_uuid
         # Fill in the label whenever a richer Investigation object supplies
         # one, regardless of write order: a bare-uuid ProtocolApplication

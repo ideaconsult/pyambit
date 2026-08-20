@@ -548,6 +548,21 @@ def to_nexus(  # noqa: F811
     nx_root[substance_id].attrs["ownerName"] = substance.ownerName
     nx_root[substance_id].attrs["ownerUUID"] = substance.ownerUUID
 
+    # externalIdentifiers is a list of (type, id) pairs (AMBIT Java's
+    # ambit2.base.data.substance.ExternalIdentifier) -- NeXus/HDF5 attrs
+    # can't hold a list of structs directly, so store as two parallel
+    # string-array attrs rather than inventing a JSON-in-attr encoding;
+    # nexus_parser.substance_from_nexus reads them back the same way.
+    if substance.externalIdentifiers:
+        nx_root[substance_id].attrs["externalIdentifierTypes"] = [
+            "" if ext_id.type is None else ext_id.type
+            for ext_id in substance.externalIdentifiers
+        ]
+        nx_root[substance_id].attrs["externalIdentifierIds"] = [
+            "" if ext_id.id is None else ext_id.id
+            for ext_id in substance.externalIdentifiers
+        ]
+
     if substance.composition is not None:
         for index, ce in enumerate(substance.composition):
             component = nx.NXsample_component()

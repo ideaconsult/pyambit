@@ -208,6 +208,13 @@ class Ambit2Solr:
         _solr["type_s"] = "substance"
         _solr["s_uuid_hs"] = substance.i5uuid
         _solr["id"] = substance.i5uuid
+        if substance.externalIdentifiers:
+            _solr["externalIdentifierType_hss"] = [
+                ext_id.type for ext_id in substance.externalIdentifiers
+            ]
+            _solr["externalIdentifierId_hss"] = [
+                ext_id.id for ext_id in substance.externalIdentifiers
+            ]
         _studies = []
         for _papp in substance.study:
             _study_solr = self.entry2solr(_papp)

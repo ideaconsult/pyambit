@@ -1513,6 +1513,20 @@ class Composition(AmbitModel):
         return super().model_construct(**data)
 
 
+class ExternalIdentifier(AmbitModel):
+    """A (type, id) pair identifying a substance in some external system --
+    e.g. the library/dataset a sample came from and its id within that
+    library (type="BLoP", id="Acrylic 1. Green Yarn"). Matches AMBIT Java's
+    ambit2.base.data.substance.ExternalIdentifier, whose fields are named
+    systemDesignator/systemIdentifier internally but serialize to JSON as
+    "type"/"id" (see its toString()); modeled here directly as type/id
+    since pyambit has no equivalent internal/JSON name split elsewhere.
+    """
+
+    type: Optional[str] = None
+    id: Optional[str] = None
+
+
 class SubstanceRecord(AmbitModel):
     URI: Optional[str] = None
     ownerUUID: Optional[str] = None
@@ -1524,7 +1538,7 @@ class SubstanceRecord(AmbitModel):
     substanceType: Optional[str] = None
     referenceSubstance: Optional[ReferenceSubstance] = None
     # composition : List[]
-    # externalIdentifiers : List[]
+    externalIdentifiers: Optional[List[ExternalIdentifier]] = None
     study: Optional[List[ProtocolApplication]] = None
     composition: Optional[List[CompositionEntry]] = None
 

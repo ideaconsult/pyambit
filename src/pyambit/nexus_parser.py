@@ -11,6 +11,7 @@ from pyambit.datamodel import (
     EffectRecord,
     EffectResult,
     EndpointCategory,
+    ExternalIdentifier,
     Protocol,
     ProtocolApplication,
     SampleLink,
@@ -80,6 +81,31 @@ class Nexus2Ambit:
 
     def substance_from_nexus(self, nxentry: nx.NXentry) -> SubstanceRecord:
         try:
+            # Written as two parallel string-array attrs by
+            # nexus_writer.to_nexus (NeXus/HDF5 attrs can't hold a list of
+            # structs directly) -- zip them back into ExternalIdentifier
+            # pairs. Both absent is the normal case (most substances have
+            # none); a length mismatch never happens since the writer only
+            # ever writes both together from the same list. h5py collapses
+            # a length-1 string array attr back to a bare str on read (not
+            # a list), which would otherwise zip element-by-CHARACTER
+            # instead of by-identifier -- wrap any bare str back into a
+            # single-element list first (confirmed via a real write/read
+            # round-trip with one external identifier).
+            ext_types = nxentry.attrs.get("externalIdentifierTypes")
+            ext_ids = nxentry.attrs.get("externalIdentifierIds")
+            if isinstance(ext_types, str):
+                ext_types = [ext_types]
+            if isinstance(ext_ids, str):
+                ext_ids = [ext_ids]
+            external_identifiers = (
+                [
+                    ExternalIdentifier(type=ext_type, id=ext_id)
+                    for ext_type, ext_id in zip(ext_types, ext_ids)
+                ]
+                if ext_types is not None and ext_ids is not None
+                else None
+            )
             record = SubstanceRecord(
                 URI=None,
                 ownerUUID=nxentry.attrs["ownerUUID"],
@@ -90,6 +116,7 @@ class Nexus2Ambit:
                 format="NeXus",
                 substanceType=nxentry.attrs.get("substanceType", "CHEBI_59999"),
                 referenceSubstance=None,
+                externalIdentifiers=external_identifiers,
                 study=[],
                 composition=self.composition_from_nexus(nxentry),
             )

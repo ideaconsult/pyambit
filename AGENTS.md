@@ -35,6 +35,31 @@ for downstream ploomber pipelines that convert lab/instrument data to NeXus.
   shared with the jToxKit viewer, generated from `jtoxkit-react/src/config/*.js` by an external export script (not
   in this repo). Drives `convert_effectrecords2array`'s dose-axis selection instead of a hardcoded rule. Keep the
   JSON in sync with jtoxkit-react if that config changes; this repo cannot regenerate it standalone.
+- `src/pyambit/units.py`: eNanoMapper measure classes built on the `measurement` package — `Concentration`
+  (mass/volume), `ConcentrationMolar` (molar/volume), `ConcentrationSurface` (area/volume, for the
+  `concentration_surface` dose field `study_config` names), `Molar`, `Percent` (including the `%DNA in Tail`
+  spellings) and `Dose`. These live here, not in `pynanomapper`, because **pyambit must never import
+  pynanomapper** — pynanomapper depends on pyambit, so the reverse is circular. `pynanomapper.units.convert_units`
+  is deliberately NOT ported: it accepts a `measures=` argument and never forwards it to `measurement.utils.guess`,
+  so it returns `None` for every concentration unit, and calling `guess` directly with an explicit measure list
+  raises `KeyError: 'umol'` from an alias collision. Construct the classes directly
+  (`Concentration(ug__ml=10).mg__l`). Note that a same-unit conversion factor is not exactly `1.0`, so never use a
+  converted concentration as an exact dict key.
+- `src/pyambit/bmd.py`: benchmark dose (BMD) with its uncertainty, from `SubstanceRecord`/`ProtocolApplication`.
+  `series_from_substance` groups into `{PropertyKey: {provider: [DoseSeries]}}`, `bmd_cdf` bootstraps the BMD
+  distribution (BMDL/BMD/BMDU are quantiles of one object), `consolidate_providers` mixes laboratories with equal
+  weight, `bmd_vector` flattens to a fixed-length vector in log10 concentration. Reads the dose axis, exposure
+  time, assay method and control annotation from `study_config` per endpoint category rather than hardcoding
+  condition names, so it works against arbitrary AMBIT records. **It is a reader**: it never mutates the record or
+  the `EffectArray`, and a record written to NeXus before and after a BMD read produces the same tree (pinned by
+  `test_reading_a_record_does_not_mutate_it` and
+  `test_a_record_still_writes_to_nexus_after_being_read_for_bmd`). Note in particular that a per-well `REPLICATE`
+  index is a real array dimension and stays one — NeXus needs it to write each well; `bmd.py` only *reads* along
+  the dose axis, gathering wells at one concentration into repeated observations of a single point for the
+  bootstrap, in the `DoseSeries` it builds and nowhere else. One trap it does exist to avoid, which produced
+  *confidently wrong output* rather than an error and is pinned by a test: the provider must be `citation.owner`
+  (the laboratory) before `owner.company.name` (the funding project), or every lab in a project collapses into one
+  provider and consolidation becomes a silent no-op.
 - `src/pyambit/solr_writer.py`: `Ambit2Solr` — flattens `Substances`/`ProtocolApplication`/`EffectRecord` into Solr
   documents. Reads the bare `"E.method"` parameter key (same key `nexus_writer.to_nexus` reads for
   `experiment_documentation.attrs["method"]`) and appends the `_s` suffix itself when writing `E.method_s` into the
@@ -43,7 +68,8 @@ for downstream ploomber pipelines that convert lab/instrument data to NeXus.
   ever set — fixed to read the bare key, consistent with the general rule that `_s`/`_d` suffixes are appended by
   the Solr indexer, not carried by source parameters.)
 - `tests/pyambit/datamodel/`: pytest tests, one file per concern (`datamodel_test.py`, `nexus_writer_test.py`,
-  `investigation_test.py`, `default_plot_test.py`, `solr_writer_test.py`, `spectra_writer_test.py`).
+  `investigation_test.py`, `default_plot_test.py`, `solr_writer_test.py`, `spectra_writer_test.py`,
+  `units_test.py`, `bmd_test.py`).
 - `tests/pyambit/resources/`: JSON fixtures (`study.json`, `substance.json`, `composition.json`, `buggy.json`) used
   across multiple test files.
 
@@ -53,6 +79,9 @@ for downstream ploomber pipelines that convert lab/instrument data to NeXus.
   table). **Do not** run `uv sync`/`uv run` directly in this repo — with no `[project]` table it resolves nothing
   and silently falls back to whatever venv happens to be active (observed: a stale, unrelated `pynanomapper/.venv`).
   Use `poetry install` / `poetry run` instead.
+- Runtime dependencies now include `numpy` (long used directly by `datamodel.py`/`nexus_writer.py` but previously
+  undeclared, arriving transitively via pandas) and `measurement` (for `units.py`). `pynanomapper` is **not** a
+  dependency and must never become one — see `units.py` above.
 - `pyproject.toml` declares `python = ">=3.10,<3.14"` (pyambit's own `python-version` line in `.python-version`, if
   present, should match).
 - CI (`.github/workflows/ci.yml`) targets `main` and runs on Python 3.10–3.13 with Poetry 2.1.3.

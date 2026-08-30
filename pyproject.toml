@@ -46,6 +46,8 @@ pydantic = "^2.0"
 pandas = "^2.2.2"
 pytest = "^8.3.4"
 seaborn = "^0.13.2"
+numpy = ">=1.26"
+measurement = "^3.2.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">8.3.2"

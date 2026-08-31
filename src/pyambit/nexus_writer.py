@@ -27,6 +27,18 @@ from pyambit.datamodel import (
 # tbd parameterize
 
 
+def _nx_group_name(raw: str) -> str:
+    """Sanitize a value for use as one path segment of a NeXus group name.
+
+    "/" is the NeXus/HDF5 path separator, so a substance i5uuid/name that
+    legitimately contains one (a material called "PP/Talc leachate") breaks
+    `nx_root[f"substance/{raw}"] = ...` with `NeXusError: Invalid path`. Only
+    the group *name* needs sanitizing -- the real value is kept verbatim in
+    the group's `uuid`/`publicname` attrs, so nothing is lost.
+    """
+    return raw.replace("/", "_") if isinstance(raw, str) else raw
+
+
 def _nx_group_for_class(nx_class: str) -> nx.NXgroup:
     """Instantiate the real NeXus group class for `nx_class` (e.g. "NXbeam"),
     falling back to a generic NXgroup for anything nexusformat doesn't
@@ -376,7 +388,9 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
     sample = nx_root["{}/sample".format(entry_id)]
 
     if papp.owner is not None:
-        substance_id = "substance/{}".format(papp.owner.substance.uuid)
+        substance_id = "substance/{}".format(
+            _nx_group_name(papp.owner.substance.uuid)
+        )
         if substance_id not in nx_root:
             nx_root[substance_id] = nx.NXsample()
             nx_root[substance_id].attrs["uuid"] = papp.owner.substance.uuid
@@ -547,7 +561,7 @@ def to_nexus(  # noqa: F811
 
     if "substance" not in nx_root:
         nx_root["substance"] = nx.NXgroup()
-    substance_id = "substance/{}".format(substance.i5uuid)
+    substance_id = "substance/{}".format(_nx_group_name(substance.i5uuid))
     if substance_id not in nx_root:
         nx_root[substance_id] = nx.NXsample()
     nx_root[substance_id].attrs["uuid"] = substance.i5uuid

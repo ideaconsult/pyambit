@@ -182,11 +182,23 @@ class Nexus2Ambit:
             else:
                 protocol = protocol = Protocol("P-CHEM", "UNKNOWN", "", ["UNKNOWN"])
 
+        # Citation.year is Optional, so a file that never had a publication year
+        # is valid -- and to_nexus writes nothing for a None year, leaving the
+        # NXcite group without that field. Reading it unconditionally made every
+        # such file unparseable (NeXusError: Invalid path), which is how the
+        # whole MOMENTUM Template Designer corpus became unreadable: the
+        # blueprint carries no year, so TemplateDesignerParser sets None.
         _reference = nxentry.get("reference")
+
+        def _cite(field, default=None):
+            if _reference is None or field not in _reference:
+                return default
+            return _reference[field].nxdata
+
         citation = Citation(
-            year=_reference["year"].nxdata,
-            title=_reference["title"].nxdata,
-            owner=_reference["owner"].nxdata,
+            year=_cite("year"),
+            title=_cite("title", ""),
+            owner=_cite("owner", ""),
         )
 
         try:

@@ -48,6 +48,10 @@ pytest = "^8.3.4"
 seaborn = "^0.13.2"
 numpy = ">=1.26"
 measurement = "^3.2.2"
+# nexus_plot.py reads written .nxs files array-by-array via h5py (the
+# Nexus2Ambit index_only path returns link placeholders, not data) and
+# renders inline figures with matplotlib (already pulled in by seaborn).
+h5py = ">=3.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">8.3.2"

@@ -130,6 +130,17 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         nx_root = nx.NXroot()
 
     # https://manual.nexusformat.org/classes/base_classes/NXentry.html
+    # nx_name becomes an HDF5 group-link name -- "/" and "\" are path
+    # separators there, so a material id like "PP/Talc leachate" must be
+    # sanitized or nx_root[entry_id] fails with NeXusError: Invalid path
+    # (the readable id survives on the substance name/publicname and
+    # papp.owner). Bound before the try so the except-branch fallback can
+    # use it too.
+    nx_name = (
+        None
+        if papp.nx_name is None
+        else str(papp.nx_name).replace("/", "_").replace("\\", "_")
+    )
     try:
         _categories_collection = ""
         if hierarchy:
@@ -150,18 +161,14 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
             )
         except BaseException:  # noqa: B036 FIXME
             provider = "@"
-        if papp.nx_name is None:
+        if nx_name is None:
             entry_id = "{}/{}_{}".format(_categories_collection, provider, papp.uuid)
         else:
-            entry_id = "{}/{}_{}".format(
-                _categories_collection,
-                "entry" if papp.nx_name is None else papp.nx_name,
-                papp.uuid,
-            )
+            entry_id = "{}/{}_{}".format(_categories_collection, nx_name, papp.uuid)
     except Exception:
         # print(err)
         entry_id = "/{}_{}".format(
-            "entry" if papp.nx_name is None else papp.nx_name, papp.uuid
+            "entry" if papp.nx_name is None else nx_name, papp.uuid
         )
 
     # entry_id can come out with a REDUNDANT leading "/" whenever there is

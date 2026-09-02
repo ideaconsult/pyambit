@@ -30,6 +30,8 @@ re-export from here.
 from __future__ import annotations
 
 import datetime as _dt
+import io
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -887,3 +889,95 @@ def draw(ax, kind, payload, *, title=None, meta=None):
     if fn is None:
         raise ValueError(f"unknown plot kind: {kind!r}")
     fn(ax, payload, meta=meta, title=title)
+
+
+# --------------------------------------------------------------------------
+# embedding a summary figure back into the file
+# --------------------------------------------------------------------------
+
+
+def figure_png(nxs_path, entry_name=None, *, dpi=150) -> bytes | None:
+    """Render one entry's default plot and return it as PNG bytes.
+
+    `entry_name` picks the entry; by default the first one that resolves to
+    something with real data -- the same rule `file_plottable` follows, so
+    the embedded picture is the one a viewer would show.
+    """
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    matplotlib.use("Agg", force=False)
+    apply_paper_style()
+
+    with h5py.File(nxs_path, "r") as h5file:
+        entries = list(iter_entries(h5file))
+        if entry_name is not None:
+            entries = [(n, e) for n, e in entries if n == entry_name]
+        for _name, entry in entries:
+            nxdata = default_nxdata(entry)
+            if nxdata is None:
+                continue
+            sig_name, dataset = signal_dataset(nxdata)
+            if dataset is None or dataset.dtype.kind not in "fiu":
+                continue
+            values = np.asarray(dataset[()], dtype=float)
+            if not np.any(~np.isnan(values)):
+                continue
+            plot = resolve_plot(nxdata, sig_name, values)
+            if plot is None:
+                continue
+            meta = entry_metadata(h5file, entry)
+            fig, ax = plt.subplots()
+            try:
+                draw(ax, plot[0], plot[1], meta=meta)
+                buffer = io.BytesIO()
+                fig.savefig(buffer, format="png", dpi=dpi, bbox_inches="tight")
+                return buffer.getvalue()
+            except Exception:  # noqa: BLE001 -- a thumbnail is never fatal
+                return None
+            finally:
+                plt.close(fig)
+    return None
+
+
+def embed_investigation_image(nxs_path, *, entry_name=None, dpi=150,
+                              overwrite=False) -> bool:
+    """Store a summary figure in the file's own `investigation/<uuid>`
+    group, so the picture travels with the data.
+
+    Written exactly as `nexus_writer` writes `Investigation.image`: an
+    NXnote with `type="image/png"` and the bytes as a uint8 array, which
+    H5Web / HDFView render directly (a base64 *string* field would show as
+    "iVBORw0KG..." text to any such viewer).
+
+    This is a second pass, deliberately: the figure is rendered FROM the
+    written file, so what gets embedded is guaranteed to be what the file
+    actually contains -- not what the converter believed it was writing.
+    Returns True if an image was stored.
+    """
+    png = figure_png(nxs_path, entry_name, dpi=dpi)
+    if png is None:
+        return False
+
+    with h5py.File(nxs_path, "r+") as h5file:
+        investigation = h5file.get("investigation")
+        if investigation is None:
+            return False
+        stored = False
+        for name in investigation:
+            group = investigation[name]
+            if not isinstance(group, h5py.Group):
+                continue
+            if "image" in group:
+                if not overwrite:
+                    continue
+                del group["image"]
+            note = group.create_group("image")
+            note.attrs["NX_class"] = "NXnote"
+            note.create_dataset("type", data="image/png")
+            note.create_dataset(
+                "data", data=np.frombuffer(png, dtype=np.uint8)
+            )
+            note.create_dataset("file_name", data=f"{Path(nxs_path).stem}.png")
+            stored = True
+        return stored

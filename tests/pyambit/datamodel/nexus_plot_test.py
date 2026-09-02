@@ -14,7 +14,8 @@ from pyambit import nexus_writer  # noqa: F401  (registers to_nexus)
 from pyambit import nexus_plot
 
 
-def _write_file(tmp_path, effects, *, provider="Test Lab", material="Sample 1"):
+def _write_file(tmp_path, effects, *, provider="Test Lab", material="Sample 1",
+                investigation=True):
     pa = mx.ProtocolApplication(
         uuid="pa1",
         protocol=mx.Protocol(
@@ -26,6 +27,17 @@ def _write_file(tmp_path, effects, *, provider="Test Lab", material="Sample 1"):
         effects=effects,
         parameters={"E.method": "Dose response - demo"},
         citation=mx.Citation(owner=provider, title="10.1234/demo", year=2025),
+        # Real converter output always carries one (it is what groups the
+        # entries of a study together), and it is where a summary figure
+        # gets embedded.
+        investigation_uuid=(
+            mx.Investigation(
+                uuid="inv1", title="Demo investigation",
+                description="A demo assay, run for the test suite.",
+            )
+            if investigation
+            else None
+        ),
         owner=mx.SampleLink(
             substance=mx.Sample(uuid="s1"), company=mx.Company(name=provider)
         ),
@@ -178,6 +190,41 @@ def test_mixed_dose_axis_splits_controls_off(tmp_path):
     fig, ax = plt.subplots()
     nexus_plot.draw(ax, kind, p)  # must not raise on the mixed axis
     plt.close(fig)
+
+
+def test_embeds_summary_figure_into_the_investigation_group(tmp_path):
+    """The picture travels with the data: an NXnote of PNG bytes under
+    investigation/<uuid>, the same shape nexus_writer writes for
+    Investigation.image, so a NeXus viewer renders it directly."""
+    import h5py
+
+    path = _write_file(tmp_path, [_dose_response_effect()])
+    assert nexus_plot.embed_investigation_image(path) is True
+
+    with h5py.File(path, "r") as h5:
+        (inv_name,) = list(h5["investigation"])
+        note = h5["investigation"][inv_name]["image"]
+        assert note.attrs["NX_class"] == "NXnote"
+        assert note["type"][()].decode() == "image/png"
+        data = np.asarray(note["data"][()])
+        assert data.dtype == np.uint8
+        # a real PNG, not a base64 string field
+        assert bytes(data[:8]) == b"\x89PNG\r\n\x1a\n"
+
+    # idempotent: a second pass leaves the existing image alone
+    assert nexus_plot.embed_investigation_image(path) is False
+
+
+def test_embed_is_a_noop_when_nothing_is_plottable(tmp_path):
+    nan_effect = mx.EffectArray(
+        endpoint="all nan",
+        endpointtype="RAW_DATA",
+        signal=mx.ValueArray(values=np.full(3, np.nan), unit="a.u."),
+        axes={"x": mx.ValueArray(values=np.array([0.0, 1.0, 2.0]))},
+        conditions={},
+    )
+    path = _write_file(tmp_path, [nan_effect])
+    assert nexus_plot.embed_investigation_image(path) is False
 
 
 def test_labeled_does_not_duplicate_a_unit_already_in_the_name(tmp_path):

@@ -31,7 +31,7 @@ def _nx_group_name(raw: str) -> str:
     """Sanitize a value for use as one path segment of a NeXus group name.
 
     "/" is the NeXus/HDF5 path separator, so a substance i5uuid/name that
-    legitimately contains one (a material called "PP/Talc leachate") breaks
+    legitimately contains one (a blend named after its components) breaks
     `nx_root[f"substance/{raw}"] = ...` with `NeXusError: Invalid path`. Only
     the group *name* needs sanitizing -- the real value is kept verbatim in
     the group's `uuid`/`publicname` attrs, so nothing is lost.
@@ -762,7 +762,17 @@ def effectarray2data(effect: EffectArray):
                     "" if _tmp_unit is None else "/",
                     "" if _tmp_unit is None else _tmp_unit,
                 ).strip()
-                if _auxname == "textValue":
+                # h5py has no native HDF5 equivalent for object dtype: any
+                # auxiliary holding text needs the same string_dtype
+                # encoding "textValue" already got, regardless of what it is
+                # named -- a real case merged a categorical outcome
+                # ("Fraction", "Leachate", ...) in under its own name rather
+                # than the generic "textValue", and it crashed here exactly
+                # like an unconverted textValue array used to.
+                needs_string_dtype = _auxname == "textValue" or (
+                    isinstance(_tmp, np.ndarray) and _tmp.dtype.kind == "O"
+                )
+                if needs_string_dtype:
                     nxdata[_auxname] = nx.tree.NXfield(
                         _tmp,
                         name=_auxname,
@@ -802,25 +812,22 @@ def effectarray2data(effect: EffectArray):
         index = len(effect.axes)
         # otherwise we don't need indices
 
-    nxdata.attrs["interpretation"] = (
-        "scalar" if index == 0 else ("spectrum" if index == 1 else "image")
-    )
+    # NeXus only defines "interpretation" for a handful of values --
+    # "scalar" (rank 0), "spectrum" (rank 1) and "image" (rank 2). A real
+    # wp5 signal has 4 declared axes (Concentration/Time/Experiment/
+    # Replicate); stamping "image" on it anyway made h5web try to render a
+    # 4-D array as a 2-D image and fail with "Expected numeric, boolean,
+    # enum or complex type" on the mismatched aux/signal shapes. Leave the
+    # attribute off for anything above rank 2 -- generic NeXus viewers fall
+    # back to their own N-D array selector when it is absent.
+    if index == 0:
+        nxdata.attrs["interpretation"] = "scalar"
+    elif index == 1:
+        nxdata.attrs["interpretation"] = "spectrum"
+    elif index == 2:
+        nxdata.attrs["interpretation"] = "image"
     nxdata.title = effect.nx_name
     return nxdata
-
-
-def _has_numeric_axes(group) -> bool:
-    """True if `group` (an NXprocess/NXgroup holding NXdata children, as
-    written above) has at least one NXdata whose signal and every axis are
-    numeric -- i.e. something a generic NeXus viewer's default plot can
-    actually render, as opposed to a categorical axis (e.g. "standard":
-    ["VUA_PMMA_Co", ...]), which is exactly what triggers a viewer's
-    "Expected numeric type" error when picked as the entry's @default.
-    """
-    return any(
-        isinstance(child, nx.tree.NXdata) and _has_numeric_axes_data(child)
-        for child in group.values()
-    )
 
 
 def _has_numeric_axes_data(nxdata) -> bool:
@@ -834,6 +841,45 @@ def _has_numeric_axes_data(nxdata) -> bool:
     return bool(fields) and all(
         np.issubdtype(np.asarray(f.nxdata).dtype, np.number) for f in fields
     )
+
+
+def _has_declared_axes(nxdata) -> bool:
+    """True if a single NXdata declares at least one real `axes` entry --
+    i.e. it can be plotted against something meaningful, as opposed to a
+    bare scalar series that a viewer can only show against row index.
+
+    A RAW_DATA endpoint carrying no conditions of its own (e.g. qpcr's
+    "individual PCR efficiency", one value per row, no axis) still counts
+    as numeric to _has_numeric_axes_data -- so on its own that check cannot
+    tell it apart from an AGGREGATED endpoint with a real declared
+    "concentration" axis. Both are "numeric"; only one is a dose-response
+    curve. See _default_quality, which uses this to break the tie.
+    """
+    axes = nxdata.attrs.get("axes")
+    return bool(axes)
+
+
+def _default_quality(group) -> tuple:
+    """Comparable score for how good a @default candidate `group`'s best
+    NXdata child is: (has a numeric+axis-bearing child, has any numeric
+    child at all). Plain numeric-vs-not treated RAW_DATA's axis-less
+    scalars (e.g. qpcr's "individual PCR efficiency", one point per row, no
+    concentration axis) as equally good as AGGREGATED's real dose-response
+    arrays -- since RAW_DATA is written first, it always won the tie and
+    every qpcr default plot showed "efficiency vs row index" instead of the
+    actual dose-response curve. Preferring a numeric child that also
+    declares axes fixes that without hardcoding endpoint-type names.
+    """
+    numeric_with_axes = False
+    numeric_any = False
+    for child in group.values():
+        if not isinstance(child, nx.tree.NXdata):
+            continue
+        if _has_numeric_axes_data(child):
+            numeric_any = True
+            if _has_declared_axes(child):
+                numeric_with_axes = True
+    return (numeric_with_axes, numeric_any)
 
 
 def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
@@ -902,23 +948,36 @@ def process_pa(pa: ProtocolApplication, entry=None, nx_root: nx.NXroot = None):
             # by a later categorical one.
             group = entry[_group_key]
             is_numeric = _has_numeric_axes_data(nxdata)
+            candidate_quality = (
+                is_numeric and _has_declared_axes(nxdata),
+                is_numeric,
+            )
             # Group-level default: set on the first child written to this
             # group (so the chain is always complete, even if nothing
-            # numeric ever turns up), then upgraded the first time a
-            # numeric child arrives.
-            if "default" not in group.attrs or (
-                is_numeric and not _has_numeric_axes_data(group[group.attrs["default"]])
-            ):
+            # numeric ever turns up), then upgraded whenever a strictly
+            # better child arrives -- numeric beats non-numeric, and among
+            # numeric children, one with a real declared axis (a plottable
+            # curve) beats a bare axis-less scalar series.
+            current_entryid = group.attrs.get("default")
+            if current_entryid is None:
                 group.attrs["default"] = entryid
+            else:
+                current_quality = (
+                    _has_numeric_axes_data(group[current_entryid])
+                    and _has_declared_axes(group[current_entryid]),
+                    _has_numeric_axes_data(group[current_entryid]),
+                )
+                if candidate_quality > current_quality:
+                    group.attrs["default"] = entryid
 
             if _default is None:
                 _default = _group_key
                 entry.attrs["default"] = _group_key
             else:
-                current_default_numeric = _has_numeric_axes(
+                current_default_quality = _default_quality(
                     entry[entry.attrs.get("default", _default)]
                 )
-                if is_numeric and not current_default_numeric:
+                if candidate_quality > current_default_quality:
                     entry.attrs["default"] = _group_key
 
             if nxdata.title is None:

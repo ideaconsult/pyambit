@@ -186,8 +186,8 @@ class Nexus2Ambit:
         # is valid -- and to_nexus writes nothing for a None year, leaving the
         # NXcite group without that field. Reading it unconditionally made every
         # such file unparseable (NeXusError: Invalid path), which is how the
-        # whole MOMENTUM Template Designer corpus became unreadable: the
-        # blueprint carries no year, so TemplateDesignerParser sets None.
+        # whole Template Designer corpora became unreadable: such a
+        # template carries no year, so TemplateDesignerParser sets None.
         _reference = nxentry.get("reference")
 
         def _cite(field, default=None):

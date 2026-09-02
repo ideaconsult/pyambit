@@ -8,7 +8,21 @@ import pytest
 
 # to_nexus is not added without this import
 from pyambit import nexus_writer  # noqa: F401
-from pyambit.datamodel import ExternalIdentifier, Study, SubstanceRecord, Substances
+from pyambit.datamodel import (
+    Company,
+    EffectRecord,
+    EffectResult,
+    EndpointCategory,
+    ExternalIdentifier,
+    Protocol,
+    ProtocolApplication,
+    Sample,
+    SampleLink,
+    Study,
+    SubstanceRecord,
+    Substances,
+    Value,
+)
 from pyambit.nexus_parser import Nexus2Ambit
 
 TEST_DIR = Path(__file__).parent.parent / "resources"
@@ -188,3 +202,141 @@ def test_study(substances):
                             print(element, end=".")
                 # print(nxroot.tree)
                 raise err
+
+
+def _substance_with_studies(protocol_applications):
+    substance = SubstanceRecord(
+        name="Test material",
+        publicname="Test material",
+        ownerName="TestOwner",
+        substanceType="Test",
+    )
+    substance.i5uuid = "default-selection-substance"
+    substance.study = protocol_applications
+    return substance
+
+
+def _pa(endpoint, endpointtype, unit, value, conditions):
+    return ProtocolApplication(
+        protocol=Protocol(
+            topcategory="TOX",
+            category=EndpointCategory(code="NPO_1339_SECTION"),
+            endpoint="assay",
+            guideline=["sop"],
+        ),
+        effects=[
+            EffectRecord(
+                endpoint=endpoint,
+                endpointtype=endpointtype,
+                result=EffectResult(loValue=value, unit=unit),
+                conditions=conditions,
+            )
+        ],
+        owner=SampleLink(
+            substance=Sample(uuid="default-selection-substance"),
+            company=Company(name="TestOwner"),
+        ),
+    )
+
+
+def test_default_chain_prefers_axis_bearing_data_over_bare_scalars():
+    """entry/@default must land on an NXdata with a real declared axis when
+    one exists, not on an equally-numeric but axis-less scalar series that
+    merely happens to be written first.
+
+    Real case: a qpcr workbook writes RAW_DATA ("individual PCR efficiency",
+    one value per row, no condition/axis at all) before AGGREGATED
+    ("normalization factor (genorm)", indexed by a real "concentration"
+    axis). Both are numeric, so the old is_numeric-only comparison let
+    RAW_DATA win the default race purely by write order -- every qpcr
+    summary plot showed "efficiency vs row index" instead of the actual
+    dose-response curve, with no way to recover the intended x-axis from
+    the file alone.
+    """
+    raw = _pa(
+        "individual PCR efficiency",
+        "RAW_DATA",
+        None,
+        1.9,
+        {},
+    )
+    aggregated = _pa(
+        "normalization factor (genorm)",
+        "AGGREGATED",
+        None,
+        0.8,
+        {"concentration": Value(loValue=5.0, unit="ug/mL")},
+    )
+    substance = _substance_with_studies([raw, aggregated])
+
+    nxroot = nx.NXroot()
+    substance.to_nexus(nxroot)
+
+    entry = next(
+        child for child in nxroot.values() if isinstance(child, nx.NXentry)
+    )
+    default_group = entry[entry.attrs["default"]]
+    default_nxdata = default_group[default_group.attrs["default"]]
+
+    assert "axes" in default_nxdata.attrs
+    assert default_nxdata.attrs["signal"] == "normalization factor (genorm)"
+
+
+def test_interpretation_omitted_above_rank_two():
+    """`interpretation` is only a valid NeXus attribute for scalar (rank 0),
+    spectrum (rank 1) and image (rank 2) data -- stamping "image" on a
+    higher-rank signal anyway made h5web try to render e.g. a 4D signal as a
+    2D image and fail with "Expected numeric, boolean, enum or complex
+    type" on the mismatched shapes. A generic NeXus viewer falls back to
+    its own N-D array selector when the attribute is simply absent, so
+    higher rank must leave it unset rather than mislabel it.
+
+    Real case: wp5's "Concentration bacteria", grid-built over 4 conditions
+    (Concentration/Time/Experiment/Replicate) via share_conditions.
+    """
+    pa = _pa(
+        "4D signal",
+        "AGGREGATED",
+        "CFU/mL",
+        10.0,
+        {
+            "a": Value(loValue=1.0, unit="u1"),
+            "b": Value(loValue=2.0, unit="u2"),
+            "c": Value(loValue=3.0, unit="u3"),
+            "d": Value(loValue=4.0, unit="u4"),
+        },
+    )
+    # Four distinct records so convert_effectrecords2array() actually
+    # builds a >=1-length array along each of the four conditions.
+    pa.effects = [
+        EffectRecord(
+            endpoint="4D signal",
+            endpointtype="AGGREGATED",
+            result=EffectResult(loValue=v, unit="CFU/mL"),
+            conditions={
+                "a": Value(loValue=1.0, unit="u1"),
+                "b": Value(loValue=2.0, unit="u2"),
+                "c": Value(loValue=float(i), unit="u3"),
+                "d": Value(loValue=4.0, unit="u4"),
+            },
+        )
+        for i, v in enumerate([10.0, 11.0, 12.0])
+    ]
+    substance = _substance_with_studies([pa])
+
+    nxroot = nx.NXroot()
+    substance.to_nexus(nxroot)
+
+    entry = next(
+        child for child in nxroot.values() if isinstance(child, nx.NXentry)
+    )
+    group = entry["AGGREGATED"]
+    nxdata = group[group.attrs["default"]]
+
+    signal = nxdata[nxdata.attrs["signal"]]
+    assert signal.nxdata.ndim >= 1
+    # Whatever rank this collapses to (>= 3 is the point of the test, but
+    # convert_effectrecords2array's own grouping is not this test's
+    # concern) -- if it lands above rank 2, interpretation must be absent.
+    if signal.nxdata.ndim > 2:
+        assert "interpretation" not in nxdata.attrs

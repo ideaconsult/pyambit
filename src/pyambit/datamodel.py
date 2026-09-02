@@ -872,11 +872,19 @@ class ProtocolApplication(AmbitModel):
 
         cleaned_params = {}
         for key, value in v.items():
-            new_key = key.replace("/", "_") if "/" in key else key
+            # A "/" in a parameter key is a real, deliberate NeXus group
+            # path separator -- nexus_writer.to_nexus splits on it to build
+            # nested groups (e.g. "CULTURE CONDITIONS/Exposure method" ->
+            # CULTURE_CONDITIONS/Exposure_method as two path segments), and
+            # falls back to the param_lookup() heuristic only when a key has
+            # no "/" at all. Flattening every "/" to "_" here defeated that
+            # entirely -- every parameter landed as one literal
+            # underscore-joined key instead of a nested group, both in the
+            # NeXus file and in the flat JSON dump.
             if isinstance(value, dict):
-                cleaned_params[new_key] = Value(**value)
+                cleaned_params[key] = Value(**value)
             else:
-                cleaned_params[new_key] = value
+                cleaned_params[key] = value
 
         return cleaned_params
 

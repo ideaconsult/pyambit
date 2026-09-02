@@ -340,3 +340,53 @@ def test_interpretation_omitted_above_rank_two():
     # concern) -- if it lands above rank 2, interpretation must be absent.
     if signal.nxdata.ndim > 2:
         assert "interpretation" not in nxdata.attrs
+
+
+def test_protocol_application_parameters_keep_slash_as_path_separator():
+    """ProtocolApplication.parameters keys must reach nexus_writer with "/"
+    intact -- it is a deliberate NeXus group-path separator there
+    (prm_path.split("/") in to_nexus), not a character to sanitize away.
+
+    A stale validator used to flatten every "/" in a parameter key to "_"
+    (predating that convention), which turned e.g. "CULTURE CONDITIONS/
+    Exposure method" into one literal underscore-joined key instead of a
+    real nested "CULTURE CONDITIONS" group -- both in the written NeXus
+    file and in ProtocolApplication's own JSON dump.
+    """
+    pa = ProtocolApplication(
+        protocol=Protocol(
+            topcategory="TOX",
+            category=EndpointCategory(code="NPO_1339_SECTION"),
+            endpoint="assay",
+            guideline=["sop"],
+        ),
+        effects=[],
+        parameters={
+            "CULTURE CONDITIONS/Exposure method": "nebulization in cloud",
+            "__input_file": "workbook.xlsx",
+        },
+        owner=SampleLink(
+            substance=Sample(uuid="param-slash-substance"),
+            company=Company(name="TestOwner"),
+        ),
+    )
+
+    # The validator ran at construction time -- keys must already be intact.
+    assert "CULTURE CONDITIONS/Exposure method" in pa.parameters
+    assert "__input_file" in pa.parameters
+
+    substance = _substance_with_studies([pa])
+    nxroot = nx.NXroot()
+    substance.to_nexus(nxroot)
+
+    entry = next(
+        child for child in nxroot.values() if isinstance(child, nx.NXentry)
+    )
+    assert entry["CULTURE CONDITIONS"]["Exposure method"].nxdata == (
+        "nebulization in cloud"
+    )
+    # __input_file is special-cased by param_lookup to land under
+    # experiment_documentation, matching "E.method" alongside it.
+    assert entry["experiment_documentation"]["__input_file"].nxdata == (
+        "workbook.xlsx"
+    )

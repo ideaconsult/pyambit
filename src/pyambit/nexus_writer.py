@@ -445,6 +445,8 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
                             _entry[_group] = nx.NXinstrument()
                         elif _group == "environment":
                             _entry[_group] = nx.NXenvironment()
+                        elif _group == "calibration":
+                            _entry[_group] = nx.NXcalibration()
                         elif _group == "parameters":
                             _entry[_group] = nx.NXcollection()
                         elif _group == "experiment_documentation":

@@ -93,7 +93,11 @@ def test_investigation_object_supplies_title_and_description():
     group = root["investigation/study-1"]
     assert group.attrs["uuid"] == "study-1"
     assert str(group.title) == "A study title"
-    assert group.attrs["description"] == "A one-line summary of the study."
+    # A FIELD, like title -- NXcite's NXDL defines it as one, and a NeXus
+    # viewer lists fields in the tree while attributes only show once a
+    # node is expanded. As an attr the prose was effectively invisible.
+    assert "description" in group
+    assert str(group.description) == "A one-line summary of the study."
 
 
 def test_investigation_image_written_as_nxnote_not_base64_string():
@@ -194,3 +198,69 @@ def test_protocol_application_investigation_union_roundtrip():
     assert isinstance(restored2.investigation_uuid, mx.Investigation)
     assert restored2.investigation_uuid.uuid == "study-1"
     assert restored2.investigation_uuid.title == "T"
+
+
+def test_investigation_prose_survives_nexus_roundtrip_into_solr(tmp_path):
+    """The authored title/description reach a consumer, not just the file.
+
+    Before this, nexus_writer stored them and Nexus2Ambit skipped the whole
+    `investigation` group, so investigation_uuid came back a bare string and
+    the prose never left the .nxs. Now the parser reads the group and hands
+    the labelled object back, and the Solr writer indexes it.
+    """
+    from pyambit.nexus_parser import Nexus2Ambit
+    from pyambit.solr_writer import Ambit2Solr
+
+    investigation = mx.Investigation(
+        uuid="study-1",
+        title="A study title",
+        description="A one-line summary of the study.",
+    )
+    effect = mx.EffectArray(
+        endpoint="Signal",
+        endpointtype="RAW_DATA",
+        signal=mx.ValueArray(values=np.array([1.0, 2.0]), unit="a.u."),
+        axes={"x": mx.ValueArray(values=np.array([0.0, 1.0]))},
+        conditions={},
+    )
+    pa = _protocol_application("pa1", investigation_uuid=investigation, owner_uuid="s1")
+    # a real guideline and assay_uuid: nexus_writer only writes
+    # experiment_identifier when assay_uuid is set, and parse_entry wraps
+    # protocol.guideline's attr in a list (an empty list round-trips to
+    # [[]] and fails validation). Both are pre-existing round-trip quirks,
+    # unrelated to the investigation prose under test here.
+    pa.protocol.guideline = ["OECD_TG_000"]
+    pa.assay_uuid = "assay-1"
+    pa.effects = [effect]
+    substances = mx.Substances(substance=[_substance("Sample 1", "s1", pa)])
+
+    root = nx.NXroot()
+    substances.to_nexus(root, hierarchy=False)
+    path = tmp_path / "roundtrip.nxs"
+    root.save(str(path), mode="w")
+
+    parser = Nexus2Ambit(domain="/TEST", index_only=True)
+    parser.parse(nx.nxload(str(path)), "roundtrip.nxs")
+
+    # read back as the rich object, not a bare uuid
+    restored = parser.substances["s1"].study[0].investigation_uuid
+    assert isinstance(restored, mx.Investigation)
+    assert restored.uuid == "study-1"
+    assert restored.title == "A study title"
+    assert restored.description == "A one-line summary of the study."
+
+    # ...and it reaches the index, with the uuid still a plain string
+    with Ambit2Solr(prefix="TEST") as writer:
+        docs = writer.to_json(parser.get_substances())
+    studies = [
+        child
+        for doc in docs
+        for child in doc.get("_childDocuments_", [])
+        if child.get("type_s") == "study"
+    ]
+    assert studies
+    assert studies[0]["investigation_uuid_s"] == "study-1"
+    assert studies[0]["investigation_title_s"] == "A study title"
+    assert studies[0]["investigation_description_s"] == (
+        "A one-line summary of the study."
+    )

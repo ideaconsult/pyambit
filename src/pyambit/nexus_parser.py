@@ -12,6 +12,7 @@ from pyambit.datamodel import (
     EffectResult,
     EndpointCategory,
     ExternalIdentifier,
+    Investigation,
     Protocol,
     ProtocolApplication,
     SampleLink,
@@ -25,6 +26,13 @@ class Nexus2Ambit:
 
     def __init__(self, domain: str, index_only: True):
         self.substances: Dict[str, SubstanceRecord] = {}
+        # Investigations seen so far, keyed by uuid. nexus_writer writes the
+        # title/description ONCE per uuid into a shared top-level
+        # `investigation/<uuid>` group and links every entry to it, so the
+        # label has to be collected here and handed back to each
+        # ProtocolApplication that references it -- otherwise the authored
+        # prose is written to the file and never read by anything.
+        self.investigations: Dict[str, Investigation] = {}
         self.domain = domain
         self.index_only = index_only
 
@@ -38,6 +46,7 @@ class Nexus2Ambit:
 
     def clear(self):
         self.substances = {}
+        self.investigations = {}
 
     def composition_from_nexus(self, nxentry: nx.NXentry) -> list:
         """Read back the NXsample_component children SubstanceRecord.to_nexus
@@ -132,6 +141,48 @@ class Nexus2Ambit:
                 if record.i5uuid not in self.substances:
                     self.substances[record.i5uuid] = record
 
+    def investigation_from_nexus(self, nxentry) -> Investigation:
+        """One `investigation/<uuid>` group back into an Investigation.
+
+        `description` is read as a FIELD (where nexus_writer now writes it,
+        matching NXcite's NXDL) but also from the attributes, so files
+        written by the earlier code -- which stored it as an attr, where no
+        viewer showed it -- still resolve.
+        """
+        uuid = nxentry.attrs.get("uuid")
+        if uuid is None:
+            return None
+
+        def _text(name):
+            if name in nxentry:
+                value = nxentry[name].nxvalue
+                return value.decode() if isinstance(value, bytes) else str(value)
+            value = nxentry.attrs.get(name)
+            if value is None:
+                return None
+            return value.decode() if isinstance(value, bytes) else str(value)
+
+        return Investigation(
+            uuid=str(uuid),
+            title=_text("title"),
+            description=_text("description"),
+        )
+
+    def parse_investigations(self, nxentry):
+        """Collect every `investigation/<uuid>` label in the file. Written
+        once per uuid and linked from each entry, so it is read here rather
+        than per entry (see parse_entry, which attaches it by uuid)."""
+        for _name, entry in nxentry.items():
+            try:
+                investigation = self.investigation_from_nexus(entry)
+            except Exception:  # noqa: BLE001 -- a label is never fatal
+                continue
+            if investigation is None:
+                continue
+            # First one wins, matching nexus_writer's own never-overwrite
+            # rule, so parsing many files of one investigation is stable.
+            self.investigations.setdefault(investigation.uuid, investigation)
+
     def parse_studies(self, nxroot: nx.NXroot, relative_path: str):
         # "substance" and "investigation" are shared top-level groups
         # written once and linked from real study entries (see
@@ -144,9 +195,14 @@ class Nexus2Ambit:
                     self.substances[papp.owner.substance.uuid].study.append(papp)
 
     def parse(self, nxroot: nx.NXroot, relative_path: str):
+        # Both shared top-level groups are read BEFORE the study entries,
+        # so a papp can be handed the substance and the investigation label
+        # it links to (parse_studies -> parse_entry resolves both by uuid).
         for entry_name, entry in nxroot.items():
             if entry_name == "substance":
                 self.parse_substances(entry)
+            elif entry_name == "investigation":
+                self.parse_investigations(entry)
         self.parse_studies(nxroot, relative_path)
 
     def get_substances(self):
@@ -233,6 +289,17 @@ class Nexus2Ambit:
         except Exception as err:
             raise ValueError(err)
 
+        # ProtocolApplication.investigation_uuid is Union[str, Investigation]:
+        # hand back the labelled object when this file carried one (so the
+        # authored title/description reach every consumer, not just whoever
+        # reopens the NeXus file), and the bare uuid otherwise.
+        _investigation_uuid = nxentry.get("collection_identifier").nxvalue
+        if isinstance(_investigation_uuid, bytes):
+            _investigation_uuid = _investigation_uuid.decode()
+        _investigation = self.investigations.get(
+            str(_investigation_uuid), _investigation_uuid
+        )
+
         papp: ProtocolApplication = ProtocolApplication(
             uuid=nxentry.get("entry_identifier_uuid").nxvalue,
             interpretationResult=None,
@@ -242,7 +309,7 @@ class Nexus2Ambit:
             effects=[],
             owner=_owner,
             protocol=protocol,
-            investigation_uuid=nxentry.get("collection_identifier").nxvalue,
+            investigation_uuid=_investigation,
             assay_uuid=nxentry.get("experiment_identifier").nxvalue,
             updated=None,
         )

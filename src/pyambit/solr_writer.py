@@ -5,6 +5,7 @@ from pyambit.datamodel import (
     EffectArray,
     EffectRecord,
     EffectResult,
+    Investigation,
     ProtocolApplication,
     SubstanceRecord,
     Substances,
@@ -94,10 +95,28 @@ class Ambit2Solr:
             _params["E.method_s"] = papp.parameters["E.method"]
         _params["type_s"] = "params"
 
+        # investigation_uuid is Union[str, Investigation] (nexus_parser hands
+        # back the labelled object when the file carried one). Index the uuid
+        # as before, plus the authored title/description when present -- that
+        # prose describes the whole study collection and is the most
+        # searchable text in the record, but it was previously written to
+        # NeXus and never read back, so it never reached the index.
+        _investigation = papp.investigation_uuid
+        _investigation_title = None
+        _investigation_description = None
+        if isinstance(_investigation, Investigation):
+            _investigation_title = _investigation.title
+            _investigation_description = _investigation.description
+            _investigation = _investigation.uuid
+
         for _id, effect in enumerate(papp.effects, start=1):
             _solr = {}
             _solr["id"] = "{}/{}".format(papp.uuid, _id)
-            _solr["investigation_uuid_s"] = papp.investigation_uuid
+            _solr["investigation_uuid_s"] = _investigation
+            if _investigation_title is not None:
+                _solr["investigation_title_s"] = _investigation_title
+            if _investigation_description is not None:
+                _solr["investigation_description_s"] = _investigation_description
             _solr["assay_uuid_s"] = papp.assay_uuid
             _solr["type_s"] = "study"
             _solr["document_uuid_s"] = papp.uuid

@@ -240,11 +240,15 @@ def to_nexus(papp: ProtocolApplication, nx_root: nx.NXroot = None, hierarchy=Fal
         if isinstance(investigation, Investigation):
             if investigation.title is not None and "title" not in group:
                 group.title = investigation.title
-            if (
-                investigation.description is not None
-                and "description" not in group.attrs
-            ):
-                group.attrs["description"] = investigation.description
+            # A FIELD, not an attribute. NXcite's NXDL defines `description`
+            # as a field (same as `title`), and a NeXus viewer shows fields
+            # in the tree while attributes only appear once a node is
+            # expanded -- written as an attr the prose was effectively
+            # invisible, and nothing read it back. Both spellings are
+            # accepted on read (see nexus_parser.investigation_from_nexus)
+            # so files written by the earlier code still resolve.
+            if investigation.description is not None and "description" not in group:
+                group.description = investigation.description
             if investigation.image is not None and "image" not in group:
                 # NXnote with type="image/png" and data as a uint8 byte
                 # array is the NeXus-native way to embed a picture -- an

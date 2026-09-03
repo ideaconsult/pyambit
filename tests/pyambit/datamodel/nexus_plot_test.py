@@ -88,6 +88,14 @@ def test_reads_metadata_from_written_entry(tmp_path):
     assert meta["material"] == "TiO2"
     assert meta["provider"] == "Test Lab"
     assert meta["method"] == "Dose response - demo"
+    # The investigation label -- nexus_writer stores `description` as a
+    # FIELD on investigation/<uuid>, and the entry here references it by
+    # collection_identifier only (no NXentry/investigation link), so this
+    # exercises the by-uuid fallback in entry_metadata.
+    assert meta["investigation"] == "Demo investigation"
+    assert meta["investigation_description"] == (
+        "A demo assay, run for the test suite."
+    )
     assert meta["n_nonnan"] == 6
     assert not meta["empty"]
     # concentration range captured; Replicate recognised as a replicate axis
@@ -246,6 +254,52 @@ def test_tick_label_decodes_bytes():
     assert nexus_plot._tick_label(b" 1-propanol") == "1-propanol"
     assert nexus_plot._tick_label(12.5) == "12.5"
     assert nexus_plot._tick_label("IC") == "IC"
+
+
+def test_investigation_helpers_read_the_shared_label(tmp_path):
+    import h5py
+
+    path = _write_file(tmp_path, [_dose_response_effect()])
+    with h5py.File(path, "r") as h5:
+        labels = dict(nexus_plot.iter_investigations(h5))
+        (name, entry), = list(nexus_plot.iter_entries(h5))
+        meta = nexus_plot.entry_metadata(h5, entry)
+
+    assert labels == {
+        "inv1": {
+            "title": "Demo investigation",
+            "description": "A demo assay, run for the test suite.",
+        }
+    }
+
+    # one study here; folded onto its group with the label carried through
+    summary = nexus_plot.summarize_investigations([(meta, "demo_assay")])
+    assert summary == {
+        "inv1": {
+            "title": "Demo investigation",
+            "description": "A demo assay, run for the test suite.",
+            "groups": ["demo_assay"],
+            "n_studies": 1,
+        }
+    }
+
+
+def test_summarize_investigations_folds_across_files():
+    # A bare-uuid study (no label yet) seen before the labelled one must not
+    # win: fields are taken the first time they are non-empty.
+    bare = {"investigation_uuid": "inv9"}
+    labelled = {
+        "investigation_uuid": "inv9",
+        "investigation": "Late label",
+        "investigation_description": "filled in by a later entry",
+    }
+    summary = nexus_plot.summarize_investigations(
+        [(bare, "a"), (labelled, "b"), (bare, "a")]
+    )
+    assert summary["inv9"]["title"] == "Late label"
+    assert summary["inv9"]["description"] == "filled in by a later entry"
+    assert summary["inv9"]["groups"] == ["a", "b"]
+    assert summary["inv9"]["n_studies"] == 3
 
 
 def test_empty_signal_flagged_not_raised(tmp_path):

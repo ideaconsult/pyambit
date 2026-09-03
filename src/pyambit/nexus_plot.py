@@ -132,6 +132,24 @@ def count_substances(h5file) -> int:
     return len(substance_group) if substance_group is not None else 0
 
 
+def substance_names(h5file) -> list:
+    """Every material in the file, by name: the `publicname` (else `name`,
+    else uuid) of each entry in the shared `substance` group, in file
+    order. This is what the .nxs actually carries -- test items and the
+    controls / vehicles / blanks alongside them, undistinguished, because
+    the file does not mark one from the other."""
+    group = h5file.get("substance")
+    if group is None:
+        return []
+    names = []
+    for uuid, node in group.items():
+        name = _attr_str(node, "publicname") or (
+            _decode(node["name"][()]) if "name" in node else None
+        )
+        names.append(name or uuid)
+    return names
+
+
 def axis_names(group) -> list:
     """`group.attrs["axes"]`, decoded, in signal-dimension order (axes[i]
     indexes signal.shape[i], the nexus_writer / nexusformat convention)."""
@@ -396,6 +414,86 @@ def _timestamp(value):
         return None
 
 
+def _investigation_label(node) -> dict:
+    """`{"title", "description"}` (present keys only) off one
+    `investigation/<uuid>` NXcite node.
+
+    Each is read as a FIELD -- where `pyambit.nexus_writer` writes it now,
+    matching NXcite's NXDL so a NeXus viewer shows the prose in the tree --
+    OR, for files written by the older code, as a same-named attribute
+    (where nothing displayed it). Both spellings resolve, matching
+    `nexus_parser.investigation_from_nexus`; the attr-only read this
+    replaced returned nothing for the description of every file written
+    since the switch.
+
+    `node` is either the shared `investigation/<uuid>` group or an
+    `NXentry/investigation` link that resolves to it -- both present the
+    same members.
+    """
+    label = {}
+    for field in ("title", "description"):
+        value = _decode(node[field][()]) if field in node else None
+        if not value:
+            value = _attr_str(node, field)
+        if value:
+            label[field] = value
+    return label
+
+
+def iter_investigations(h5file):
+    """Yield `(uuid, label)` for every `investigation/<uuid>` group in an
+    open file.
+
+    `nexus_writer` writes one such NXcite group per investigation UUID --
+    the shared collection descriptor -- and links every NXentry that
+    belongs to it via `NXentry/investigation`. `label` is a dict carrying
+    whichever of `title` / `description` the group actually has (see
+    `_investigation_label`).
+    """
+    group = h5file.get("investigation")
+    if group is None:
+        return
+    for name, node in group.items():
+        if isinstance(node, h5py.Group):
+            yield _attr_str(node, "uuid") or name, _investigation_label(node)
+
+
+def summarize_investigations(items):
+    """Fold `(entry_metadata dict, group_label)` pairs -- one per NXentry --
+    into one record per investigation, for a corpus overview.
+
+    An investigation spans many files, assays and separate writes, so its
+    `title` / `description` (already resolved onto every entry's metadata by
+    `entry_metadata`) is collected corpus-wide here rather than shown per
+    file. `group_label` is whatever the caller buckets files by -- an assay
+    folder, typically -- and each record lists every group it appears in.
+
+    Returns `{uuid: {"title", "description", "groups": sorted list,
+    "n_studies": int}}`, insertion-ordered by first appearance. A bare-uuid
+    entry may be seen before the one carrying the label, so each field is
+    taken the first time it is non-empty, never overwritten.
+    """
+    out: dict = {}
+    for meta, group in items:
+        uuid = meta.get("investigation_uuid") or meta.get("investigation")
+        if not uuid:
+            continue
+        rec = out.setdefault(
+            uuid,
+            {"title": "", "description": "", "groups": set(), "n_studies": 0},
+        )
+        rec["n_studies"] += 1
+        if group:
+            rec["groups"].add(group)
+        if not rec["title"] and meta.get("investigation"):
+            rec["title"] = meta["investigation"]
+        if not rec["description"] and meta.get("investigation_description"):
+            rec["description"] = meta["investigation_description"]
+    for rec in out.values():
+        rec["groups"] = sorted(rec["groups"])
+    return out
+
+
 def entry_metadata(h5file, entry: h5py.Group) -> dict:
     """Everything worth putting next to (or on) a figure for one NXentry --
     read from the paths `pyambit.nexus_writer` populates. Missing values are
@@ -442,17 +540,6 @@ def entry_metadata(h5file, entry: h5py.Group) -> dict:
             if field in ref:
                 meta.setdefault("reference", {})[field] = _decode(ref[field][()])
 
-    inv_link = entry.get("investigation")
-    if inv_link is not None:
-        title = _attr_str(inv_link, "title") or (
-            inv_link["title"][()] if "title" in inv_link else None
-        )
-        if title is not None:
-            meta["investigation"] = _decode(title)
-        desc = _attr_str(inv_link, "description")
-        if desc:
-            meta["investigation_description"] = desc
-
     for field, key in (
         ("entry_identifier_uuid", "study_uuid"),
         ("collection_identifier", "investigation_uuid"),
@@ -460,6 +547,24 @@ def entry_metadata(h5file, entry: h5py.Group) -> dict:
     ):
         if field in entry:
             meta[key] = _decode(entry[field][()])
+
+    # The investigation label: read it off the NXentry/investigation link
+    # when the writer emitted one, else resolve the shared
+    # investigation/<uuid> group by the entry's collection_identifier -- an
+    # index-only / older write links the entry to its investigation by uuid
+    # alone, and going only through the link left the description empty for
+    # every such file.
+    inv_link = entry.get("investigation")
+    if inv_link is None:
+        inv_group = h5file.get("investigation")
+        if inv_group is not None and meta.get("investigation_uuid"):
+            inv_link = inv_group.get(meta["investigation_uuid"])
+    if inv_link is not None:
+        label = _investigation_label(inv_link)
+        if label.get("title"):
+            meta["investigation"] = label["title"]
+        if label.get("description"):
+            meta["investigation_description"] = label["description"]
 
     # condition names + numeric ranges, from the default-plot NXdata's axes
     nxdata = default_nxdata(entry)

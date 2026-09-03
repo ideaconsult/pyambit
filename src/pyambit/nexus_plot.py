@@ -20,8 +20,11 @@ Two layers:
   (thin spines, no top/right spine, minor ticks, tight layout) and `draw`
   renders one resolved plot, replicate-aware (mean +- SD across a
   Replicate/Experiment axis rather than a bare squeeze) and optionally
-  annotated with an `entry_metadata` dict. Intended for inline figures in
-  a rendered notebook, not a folder of image files.
+  annotated with an `entry_metadata` dict. `figure_png()` returns the same
+  figure as PNG bytes for a viewer or thumbnail service to serve on
+  demand. Figures are rendered when asked for -- never written back into
+  the .nxs, which should carry measurements, not a stale rendering of
+  them.
 
 Ported from nanodata-momentum-clean's per-pipeline copies, which now
 re-export from here.
@@ -31,7 +34,6 @@ from __future__ import annotations
 
 import datetime as _dt
 import io
-from pathlib import Path
 
 import h5py
 import numpy as np
@@ -892,7 +894,7 @@ def draw(ax, kind, payload, *, title=None, meta=None):
 
 
 # --------------------------------------------------------------------------
-# embedding a summary figure back into the file
+# rendering a summary figure on demand
 # --------------------------------------------------------------------------
 
 
@@ -901,7 +903,12 @@ def figure_png(nxs_path, entry_name=None, *, dpi=150) -> bytes | None:
 
     `entry_name` picks the entry; by default the first one that resolves to
     something with real data -- the same rule `file_plottable` follows, so
-    the embedded picture is the one a viewer would show.
+    the picture is the one a viewer would show.
+
+    Rendered on demand, for a viewer or a thumbnail service. The result is
+    deliberately NOT written back into the .nxs: a figure is derived from
+    the data, it goes stale the moment the plotting code changes, and an
+    archival measurement file should not carry ~40KB of it per entry.
     """
     import matplotlib
     import matplotlib.pyplot as plt
@@ -938,46 +945,3 @@ def figure_png(nxs_path, entry_name=None, *, dpi=150) -> bytes | None:
             finally:
                 plt.close(fig)
     return None
-
-
-def embed_investigation_image(nxs_path, *, entry_name=None, dpi=150,
-                              overwrite=False) -> bool:
-    """Store a summary figure in the file's own `investigation/<uuid>`
-    group, so the picture travels with the data.
-
-    Written exactly as `nexus_writer` writes `Investigation.image`: an
-    NXnote with `type="image/png"` and the bytes as a uint8 array, which
-    H5Web / HDFView render directly (a base64 *string* field would show as
-    "iVBORw0KG..." text to any such viewer).
-
-    This is a second pass, deliberately: the figure is rendered FROM the
-    written file, so what gets embedded is guaranteed to be what the file
-    actually contains -- not what the converter believed it was writing.
-    Returns True if an image was stored.
-    """
-    png = figure_png(nxs_path, entry_name, dpi=dpi)
-    if png is None:
-        return False
-
-    with h5py.File(nxs_path, "r+") as h5file:
-        investigation = h5file.get("investigation")
-        if investigation is None:
-            return False
-        stored = False
-        for name in investigation:
-            group = investigation[name]
-            if not isinstance(group, h5py.Group):
-                continue
-            if "image" in group:
-                if not overwrite:
-                    continue
-                del group["image"]
-            note = group.create_group("image")
-            note.attrs["NX_class"] = "NXnote"
-            note.create_dataset("type", data="image/png")
-            note.create_dataset(
-                "data", data=np.frombuffer(png, dtype=np.uint8)
-            )
-            note.create_dataset("file_name", data=f"{Path(nxs_path).stem}.png")
-            stored = True
-        return stored

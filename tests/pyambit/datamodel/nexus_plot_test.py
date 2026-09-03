@@ -192,30 +192,26 @@ def test_mixed_dose_axis_splits_controls_off(tmp_path):
     plt.close(fig)
 
 
-def test_embeds_summary_figure_into_the_investigation_group(tmp_path):
-    """The picture travels with the data: an NXnote of PNG bytes under
-    investigation/<uuid>, the same shape nexus_writer writes for
-    Investigation.image, so a NeXus viewer renders it directly."""
+def test_figure_png_renders_on_demand(tmp_path):
+    """A viewer / thumbnail service asks for the figure and gets PNG bytes.
+    Nothing is written back to the file -- the .nxs carries measurements,
+    not a rendering of them."""
     import h5py
 
     path = _write_file(tmp_path, [_dose_response_effect()])
-    assert nexus_plot.embed_investigation_image(path) is True
+    before = path.stat().st_size
 
+    png = nexus_plot.figure_png(path)
+    assert png is not None
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+    assert path.stat().st_size == before
     with h5py.File(path, "r") as h5:
         (inv_name,) = list(h5["investigation"])
-        note = h5["investigation"][inv_name]["image"]
-        assert note.attrs["NX_class"] == "NXnote"
-        assert note["type"][()].decode() == "image/png"
-        data = np.asarray(note["data"][()])
-        assert data.dtype == np.uint8
-        # a real PNG, not a base64 string field
-        assert bytes(data[:8]) == b"\x89PNG\r\n\x1a\n"
-
-    # idempotent: a second pass leaves the existing image alone
-    assert nexus_plot.embed_investigation_image(path) is False
+        assert "image" not in h5["investigation"][inv_name]
 
 
-def test_embed_is_a_noop_when_nothing_is_plottable(tmp_path):
+def test_figure_png_is_none_when_nothing_is_plottable(tmp_path):
     nan_effect = mx.EffectArray(
         endpoint="all nan",
         endpointtype="RAW_DATA",
@@ -224,7 +220,7 @@ def test_embed_is_a_noop_when_nothing_is_plottable(tmp_path):
         conditions={},
     )
     path = _write_file(tmp_path, [nan_effect])
-    assert nexus_plot.embed_investigation_image(path) is False
+    assert nexus_plot.figure_png(path) is None
 
 
 def test_labeled_does_not_duplicate_a_unit_already_in_the_name(tmp_path):

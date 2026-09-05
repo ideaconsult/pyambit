@@ -1,3 +1,4 @@
+import numbers
 import traceback
 from typing import Dict
 
@@ -20,6 +21,119 @@ from pyambit.datamodel import (
     Substances,
     Value,
 )
+
+# Deriving the read-back from the writer's own routing table, rather than
+# restating the mapping here, is what keeps the two from drifting -- the same
+# reason nanodata's assay_index.py imports it (see nexus_param_field there).
+from pyambit.nexus_writer import param_lookup
+
+# The NeXus groups param_lookup can route a protocol-application parameter
+# into. Everything else in an NXentry is not a parameter and is read
+# elsewhere: NXdata/RAW_DATA hold the measured arrays, reference/investigation
+# the citation and study label, and definition / collection_identifier /
+# entry_identifier_uuid the entry's identity.
+PARAM_GROUPS = (
+    "instrument",
+    "environment",
+    "sample",
+    "parameters",
+    "experiment_documentation",
+)
+
+# Written by to_nexus from the ProtocolApplication itself, never from
+# papp.parameters. Reading them back as parameters would invent keys the
+# source never had, and they are already parsed into their own model fields.
+NOT_PARAMETERS = {
+    ("sample", "substance"),  # NXlink to /substance/<uuid>; owner.substance
+    ("sample", "provider"),  # papp.owner.company.name
+    ("experiment_documentation", "protocol"),  # papp.protocol, an attrs carrier
+    ("experiment_documentation", "date"),  # papp.updated
+}
+
+
+def _scalar(field):
+    """A parameter's python value, or None if this field is not one.
+
+    Only scalars are parameters -- an array under one of the parameter groups
+    is measured data that belongs to an effect, not a protocol parameter. A
+    field carrying a `unit` attribute becomes a Value so that solr_writer's
+    prm2solr emits the `_d` + `_UNIT_s` pair it already emits for wavelength,
+    instead of flattening the quantity to a bare string.
+    """
+    try:
+        value = field.nxvalue
+    except Exception:  # noqa: BLE001 - unreadable field is simply not a parameter
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    # numpy scalars: np.float64 subclasses float, np.int64 does NOT subclass
+    # int, and prm2solr dispatches on isinstance -- so an unconverted np.int64
+    # would be silently dropped from the Solr document. numbers.Real catches
+    # both; .item() hands back the plain python equivalent.
+    if not isinstance(value, str):
+        if isinstance(value, bool) or not isinstance(value, numbers.Real):
+            return None
+        value = value.item() if hasattr(value, "item") else value
+    if isinstance(value, str):
+        return value
+    try:
+        unit = field.attrs.get("unit")
+    except Exception:  # noqa: BLE001
+        unit = None
+    # ProtocolApplication.parameters is Dict[str, Union[str, Value, None]], so
+    # a bare number is not a legal value there (pydantic rejects the whole
+    # papp -- MOMENTUM's "Number of cells per well" = 200000.0 is a real
+    # example). A number is a quantity anyway: wrapping it means prm2solr
+    # emits `<key>_d`, and `<key>_UNIT_s` when the field carried a unit,
+    # instead of stringifying a measurement.
+    return Value(loValue=value, unit=str(unit) if unit is not None else None)
+
+
+def _collect_parameters(group, path, found):
+    for name, node in group.items():
+        if len(path) == 1 and (path[0], name) in NOT_PARAMETERS:
+            continue
+        if isinstance(node, nx.NXlink):
+            continue
+        if isinstance(node, nx.NXgroup):
+            _collect_parameters(node, path + [name], found)
+            continue
+        value = _scalar(node)
+        if value is None:
+            continue
+        full = path + [name]
+        # A bare name that param_lookup would route back to exactly this path
+        # is stored bare, so the round trip is exact AND prm2solr names the
+        # field the way every other index names it (__input_file_s, not
+        # experiment_documentation/__input_file_s). Anything the heuristic
+        # would put somewhere else keeps its full path, so where it actually
+        # lives in the file is never lost.
+        try:
+            routed = param_lookup(name, value) == full
+        except Exception:  # noqa: BLE001 - odd name, keep the explicit path
+            routed = False
+        found[name if routed else "/".join(full)] = value
+    return found
+
+
+def parameters_from_nxentry(nxentry) -> Dict:
+    """Every protocol-application parameter written into this entry.
+
+    to_nexus routes each papp.parameters entry into one of PARAM_GROUPS (via
+    param_lookup for a bare name, or verbatim for a key that is already a
+    path). Nothing read them back: parse_entry recovered only E.method,
+    wavelength and instrument, so __input_file and the whole
+    exposure/medium/cell/instrument block reached the .nxs file and then
+    vanished -- leaving the type_s:params Solr child with nothing but its own
+    identity fields, and the folded study documents with no parameters to
+    search on at all.
+    """
+    found: Dict = {}
+    for group_name in PARAM_GROUPS:
+        group = nxentry.get(group_name)
+        if isinstance(group, nx.NXgroup):
+            _collect_parameters(group, [group_name], found)
+    return found
 
 
 class Nexus2Ambit:
@@ -257,12 +371,21 @@ class Nexus2Ambit:
             owner=_cite("owner", ""),
         )
 
+        # Read every parameter back out of the groups to_nexus put them in,
+        # BEFORE the special cases below, so those still win: they compose
+        # values the generic sweep cannot (instrument = "vendor model") or
+        # fall back to `definition`, and that behaviour is unchanged.
+        parameters.update(parameters_from_nxentry(nxentry))
+
         try:
             wl = nxentry["instrument/beam_incident/wavelength"].nxdata
             wl_unit = nxentry["instrument/beam_incident/wavelength"].attrs["unit"]
             parameters["wavelength"] = Value(loValue=wl, unit=wl_unit)
         except:  # noqa: B001,E722 FIXME
-            parameters["wavelength"] = None
+            # setdefault, not assignment: the sweep above may already have
+            # read a perfectly good wavelength (one written without a `unit`
+            # attribute, say), and overwriting it with None would lose it.
+            parameters.setdefault("wavelength", None)
 
         try:
             instrument_model = nxentry["instrument/device_information/model"].nxvalue

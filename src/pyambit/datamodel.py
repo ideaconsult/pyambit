@@ -683,6 +683,38 @@ class ReliabilityParams(AmbitModel):
         )
 
 
+class Investigation(AmbitModel):
+    """A human-readable label for what investigation_uuid identifies.
+
+    Deliberately separate from Citation: many ProtocolApplications across
+    many files can share one investigation_uuid (ISA-TAB's investigation is
+    not 1:1 with either a substance or a single write call), so the label
+    is written once, keyed by uuid, and entries link to it -- not
+    duplicated onto every ProtocolApplication the way Citation naturally
+    is. `image` is an optional embedded thumbnail/summary plot (e.g. a
+    small PNG as base64 or a URI), not the investigation's raw data.
+    """
+
+    uuid: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    # NXnote's own "file_name" field ("Name of original file name if note
+    # was read from an external source"); optional, cosmetic only.
+    image_filename: Optional[str] = None
+
+    def __eq__(self, other):
+        if not isinstance(other, Investigation):
+            return False
+        return self.uuid == other.uuid
+
+    def __repr__(self):
+        return f"Investigation(uuid={self.uuid!r}, title={self.title!r})"
+
+
+Investigation = create_model("Investigation", __base__=Investigation)
+
+
 class Citation(AmbitModel):
     year: Optional[int] = None
     title: str
@@ -809,7 +841,12 @@ class ProtocolApplication(AmbitModel):
     effects: List[Union[EffectRecord, EffectArray]]
     owner: Optional[SampleLink] = None
     protocol: Optional[Protocol] = None
-    investigation_uuid: Optional[str] = None
+    # A bare uuid works exactly as before (backward compatible with every
+    # existing caller); passing a full Investigation instead adds a
+    # title/description/image, written once per uuid and linked from every
+    # entry that shares it (see nexus_writer.to_nexus) -- one field, so
+    # there is no separate flag to remember to also set.
+    investigation_uuid: Optional[Union[str, Investigation]] = None
     assay_uuid: Optional[str] = None
     updated: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
@@ -835,11 +872,19 @@ class ProtocolApplication(AmbitModel):
 
         cleaned_params = {}
         for key, value in v.items():
-            new_key = key.replace("/", "_") if "/" in key else key
+            # A "/" in a parameter key is a real, deliberate NeXus group
+            # path separator -- nexus_writer.to_nexus splits on it to build
+            # nested groups (e.g. "CULTURE CONDITIONS/Exposure method" ->
+            # CULTURE_CONDITIONS/Exposure_method as two path segments), and
+            # falls back to the param_lookup() heuristic only when a key has
+            # no "/" at all. Flattening every "/" to "_" here defeated that
+            # entirely -- every parameter landed as one literal
+            # underscore-joined key instead of a nested group, both in the
+            # NeXus file and in the flat JSON dump.
             if isinstance(value, dict):
-                cleaned_params[new_key] = Value(**value)
+                cleaned_params[key] = Value(**value)
             else:
-                cleaned_params[new_key] = value
+                cleaned_params[key] = value
 
         return cleaned_params
 
@@ -950,6 +995,25 @@ class ProtocolApplication(AmbitModel):
 
         # Determine primary axis columns
         primary_axis_cols = [col for col in axis_cols if col not in alt_axis_cols]
+
+        if not primary_axis_cols:
+            # No conditions to index by: these records are a plain series of
+            # measurements, not a grid. Building a 0-d matrix here would keep
+            # only whichever row was written last and silently discard the
+            # rest, so return the values as a 1D array instead (with no axes,
+            # which is what "no conditions" means).
+            matrix = (
+                np.asarray(df[signal_col].values)
+                if signal_col
+                else np.asarray([])
+            )
+            matrix_errors = (
+                None if errors_col is None else np.asarray(df[errors_col].values)
+            )
+            auxsignals = {
+                a: np.asarray(df[a].values) for a in (auxsignal_cols or [])
+            }
+            return matrix, axes, matrix_errors, auxsignals
 
         # Extract unique values for each primary axis
         axis_values = [sorted(df[axis].unique()) for axis in primary_axis_cols]
@@ -1145,7 +1209,9 @@ class ProtocolApplication(AmbitModel):
                             _values = (
                                 None
                                 if _tmp[tag].dropna().empty
-                                else transform_array(_tmp[tag].values)
+                                else transform_array(
+                                    _tmp[tag].values, force_text=(tag == "textValue")
+                                )
                             )
                             if _values is not None:
                                 if (signal_col is None) and (tag != "textValue"):
@@ -1155,23 +1221,38 @@ class ProtocolApplication(AmbitModel):
                                 df_axes[tag] = _values
 
                         if df_axes.isna().any().any():
-                            # for some reason there are still nan values
+                            # Not every record carries every condition: a
+                            # vehicle control has no concentration, and a
+                            # table holding several endpoints only fills the
+                            # conditions its own endpoint declares. Such rows
+                            # cannot go in the same grid as the fully
+                            # specified ones -- there is no axis position for
+                            # a missing coordinate -- but dropping them
+                            # discards real measurements, so group the rows
+                            # by WHICH conditions they actually have and build
+                            # one array per group, each over just those axes.
+                            axis_cols_present = [
+                                col for col in df_axes.columns if col in axes
+                            ]
+                            groups = {}
+                            for idx in df_axes.index:
+                                row = df_axes.loc[idx]
+                                signature = tuple(
+                                    col
+                                    for col in axis_cols_present
+                                    if not pd.isna(row[col])
+                                )
+                                groups.setdefault(signature, []).append(idx)
                             axes_all = []
-                            nan_columns = df_axes.columns[df_axes.isna().any()].tolist()
-                            df_axes_nan = df_axes[
-                                df_axes[nan_columns].isna().any(axis=1)
-                            ]
-                            df_axes_nan = df_axes_nan.dropna(axis=1, how="all")
-                            df_axes_not_nan = df_axes[
-                                df_axes[nan_columns].notna().all(axis=1)
-                            ]
-                            if not df_axes_not_nan.empty:
-                                axes_all.append(df_axes_not_nan)
-                                # print(print(df_axes_not_nan))
-                            if not df_axes_nan.empty:
-                                # ignore for now
-                                # axes_all.append(df_axes_nan)
-                                print(df_axes_nan)
+                            for signature, idxs in groups.items():
+                                unused = [
+                                    col
+                                    for col in axis_cols_present
+                                    if col not in signature
+                                ]
+                                axes_all.append(
+                                    df_axes.loc[idxs].drop(columns=unused)
+                                )
                         else:
                             axes_all = [df_axes]
 
@@ -1182,11 +1263,25 @@ class ProtocolApplication(AmbitModel):
                                 error_col = "errorValue"
                                 df_axes[error_col] = _tmp[error_col]
 
-                            matrix, axes, matrix_errors, auxsignals = (
+                            # Each group gets its own axes: only the ones it
+                            # actually has, and its own ValueArray objects.
+                            # create_multidimensional_matrix writes the axis
+                            # values back into these, so sharing one dict
+                            # across groups would let the last group
+                            # overwrite the axes of every earlier one.
+                            group_axes = {
+                                name: ValueArray(
+                                    values=value_array.values,
+                                    unit=value_array.unit,
+                                )
+                                for name, value_array in axes.items()
+                                if name in df_axes.columns
+                            }
+                            matrix, group_axes, matrix_errors, auxsignals = (
                                 self.create_multidimensional_matrix(
                                     df_axes,
                                     signal_col,
-                                    axes,
+                                    group_axes,
                                     alt_axes,
                                     error_col,
                                     auxsignal_cols,
@@ -1213,7 +1308,7 @@ class ProtocolApplication(AmbitModel):
                                     errorValue=matrix_errors,
                                     auxiliary=auxsignals,
                                 ),
-                                axes=axes,
+                                axes=group_axes,
                                 axis_groups=alt_axes,
                             )
                             arrays.append(earray)
@@ -1476,6 +1571,20 @@ class Composition(AmbitModel):
         return super().model_construct(**data)
 
 
+class ExternalIdentifier(AmbitModel):
+    """A (type, id) pair identifying a substance in some external system --
+    e.g. the library/dataset a sample came from and its id within that
+    library (type="BLoP", id="Acrylic 1. Green Yarn"). Matches AMBIT Java's
+    ambit2.base.data.substance.ExternalIdentifier, whose fields are named
+    systemDesignator/systemIdentifier internally but serialize to JSON as
+    "type"/"id" (see its toString()); modeled here directly as type/id
+    since pyambit has no equivalent internal/JSON name split elsewhere.
+    """
+
+    type: Optional[str] = None
+    id: Optional[str] = None
+
+
 class SubstanceRecord(AmbitModel):
     URI: Optional[str] = None
     ownerUUID: Optional[str] = None
@@ -1487,7 +1596,7 @@ class SubstanceRecord(AmbitModel):
     substanceType: Optional[str] = None
     referenceSubstance: Optional[ReferenceSubstance] = None
     # composition : List[]
-    # externalIdentifiers : List[]
+    externalIdentifiers: Optional[List[ExternalIdentifier]] = None
     study: Optional[List[ProtocolApplication]] = None
     composition: Optional[List[CompositionEntry]] = None
 
@@ -1653,29 +1762,77 @@ def configure_papp(
     papp.owner = SampleLink(substance=substance, company=company)
 
 
-def transform_array(arr):
-    any_strings = any(isinstance(item, str) for item in arr)
+def numeric_axis_values(values):
+    """Coerce axis values to numeric where the text just wraps a number.
+
+    Some workbooks label a genuinely ordinal condition as text ("Replicate
+    1", "Replicate 6") instead of storing the number. An object-dtype
+    NumPy array has no HDF5 equivalent and breaks to_nexus(), and the label
+    text carries no information the number doesn't -- so strip it here,
+    once, rather than downstream in every consumer. Values that are not
+    "text wrapping a number" are returned unchanged.
+
+    Ported from pynanomapper's TemplateDesignerParser._numeric_axis_values,
+    which now delegates here: the rule belongs with the rest of the
+    record->array conversion, so there is one implementation of it rather
+    than one per producer of EffectRecords.
+    """
+    arr = np.asarray(values)
+    if arr.dtype.kind != "O":
+        return arr
+    extracted = pd.Series(arr).astype(str).str.extract(r"(-?\d+\.?\d*)")[0]
+    if extracted.isna().any():
+        return arr  # not uniformly numeric-with-text; keep as given
+    return extracted.astype(float).to_numpy()
+
+
+def extract_labelled_numbers(arr):
+    """The numbers behind "Replicate 1".."Replicate 6", or None if `arr` is
+    not uniformly a label wrapping a number (a genuine category name)."""
+    if len(arr) == 0:
+        return None
+    converted = numeric_axis_values(np.asarray(arr, dtype=object))
+    return None if converted.dtype.kind == "O" else converted
+
+
+def transform_array(arr, force_text=False):
+    """`force_text`: skip the numeric-coercion attempts below and always
+    encode as text. For an EffectResult.textValue column specifically: the
+    template already declared this endpoint `value_text`, so a value that
+    happens to look numeric ("0.2", a real case where a "Volume" endpoint
+    was declared text but its actual recorded values are plain numbers) must
+    still be written as the text it is, not silently reinterpreted as a
+    number because pd.to_numeric happens to accept it. That reinterpretation
+    also broke nexus_writer, which force-casts anything named "textValue" to
+    string dtype and cannot write a float array through that path.
+    """
+    any_strings = force_text or any(isinstance(item, str) for item in arr)
     if any_strings:
-        try:
-            return pd.to_numeric(arr, errors="raise")
-        except Exception:
-            _converted = np.array(
-                [
-                    (
-                        "=".encode("ascii", errors="ignore")  # Default value for None
-                        if x is None
-                        else (
-                            x.encode("ascii", errors="ignore")  # Encode strings
-                            if isinstance(x, str)
-                            else str(x).encode(
-                                "ascii", errors="ignore"
-                            )  # Convert non-strings to string and encode
-                        )
+        if not force_text:
+            try:
+                return pd.to_numeric(arr, errors="raise")
+            except Exception:
+                pass
+            labelled = extract_labelled_numbers(arr)
+            if labelled is not None:
+                return labelled
+        _converted = np.array(
+            [
+                (
+                    "=".encode("ascii", errors="ignore")  # Default value for None
+                    if x is None
+                    else (
+                        x.encode("ascii", errors="ignore")  # Encode strings
+                        if isinstance(x, str)
+                        else str(x).encode(
+                            "ascii", errors="ignore"
+                        )  # Convert non-strings to string and encode
                     )
-                    for x in arr
-                ]
-            )
-            return _converted
+                )
+                for x in arr
+            ]
+        )
+        return _converted
     numeric_array = pd.to_numeric(arr, errors="coerce")
     all_nans = np.all(np.isnan(numeric_array))
     if all_nans:
@@ -1736,12 +1893,17 @@ def find_string_only_columns(df):
         return series.apply(lambda x: isinstance(x, str) or pd.isna(x)).all()
 
     # Use list comprehension to check if each column is string only and cannot be
-    # converted to numeric.
+    # converted to numeric. A column whose values are all a label wrapping a
+    # number ("Replicate 1".."Replicate 6") is NOT categorical -- it is an
+    # ordinal axis, and transform_array turns it into one -- so splitting the
+    # data on it would shatter one replicate axis into a separate array per
+    # replicate.
     string_only_cols = [
         col
         for col in object_cols
         if is_string_only(df[col])
         and pd.to_numeric(df[col], errors="coerce").isna().all()
+        and extract_labelled_numbers(df[col].dropna().values) is None
     ]
     # print(string_only_cols)
     return string_only_cols

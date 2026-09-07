@@ -657,9 +657,30 @@ def create_substance_record() -> mb.SubstanceRecord:
         referenceSubstance=mb.ReferenceSubstance(
             i5uuid="ref-i5uuid", uri="http://example.com/reference"
         ),
+        externalIdentifiers=[
+            mb.ExternalIdentifier(type="BLoP", id="Acrylic 1. Green Yarn"),
+            mb.ExternalIdentifier(type="DATASET", id="BLoP"),
+        ],
         study=[create_protocolapp4test()],
         composition=None,
     )
+
+
+def test_external_identifier_roundtrip():
+    """
+    Test the roundtrip serialization and deserialization of the
+    ExternalIdentifier model -- matches AMBIT Java's
+    ambit2.base.data.substance.ExternalIdentifier (systemDesignator/
+    systemIdentifier fields, serialized as "type"/"id").
+    """
+    original = mb.ExternalIdentifier(type="BLoP", id="Acrylic 1. Green Yarn")
+
+    json_string = original.model_dump_json()
+    data = json.loads(json_string)
+    new_instance = mb.ExternalIdentifier.model_construct(**data)
+
+    assert original == new_instance
+    assert data == {"type": "BLoP", "id": "Acrylic 1. Green Yarn"}
 
 
 def test_substance_record_roundtrip():
